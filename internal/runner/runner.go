@@ -26,6 +26,7 @@ import (
 	"github.com/PrakashNiraula/autodeployer/internal/lockfile"
 	"github.com/PrakashNiraula/autodeployer/internal/machine"
 	"github.com/PrakashNiraula/autodeployer/internal/mask"
+	"github.com/PrakashNiraula/autodeployer/internal/notify"
 	"github.com/PrakashNiraula/autodeployer/internal/plan"
 	"github.com/PrakashNiraula/autodeployer/internal/store"
 )
@@ -263,7 +264,18 @@ func Execute(opts Options) (Result, error) {
 	_ = db.UpdateRunStatus(runID, status, lastExit, errSummary, ended)
 	emitEvent(opts.Events, map[string]any{"type": "run_end", "run_id": runID, "status": status})
 	writeMeta(opts.JSONMeta, res)
+	maybeNotify(cfg, res)
 	return res, nil
+}
+
+func maybeNotify(cfg machine.Config, res Result) {
+	if !notify.ShouldFire(cfg, res.Status) {
+		return
+	}
+	_ = notify.Fire(cfg, map[string]any{
+		"run_id": res.RunID, "job_id": res.JobID, "env": res.EnvProfile,
+		"status": res.Status, "exit_code": res.ExitCode, "skip_reason": res.SkipReason,
+	})
 }
 
 func recordSkipped(db *store.DB, opts Options, pl plan.Result, reason string, cli int) (Result, error) {
@@ -287,6 +299,9 @@ func recordSkipped(db *store.DB, opts Options, pl plan.Result, reason string, cl
 		CLIExit: cli, Steps: []StepResult{},
 	}
 	writeMeta(opts.JSONMeta, res)
+	if cfg, err := machine.Load(filepath.Join(opts.Root, "data")); err == nil {
+		maybeNotify(cfg, res)
+	}
 	return res, fmt.Errorf("skipped: %s", reason)
 }
 
