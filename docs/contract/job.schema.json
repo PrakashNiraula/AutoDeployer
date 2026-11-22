@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autodeployer.local/contract/job.schema.json",
+  "title": "JobYaml",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "name", "workdir", "steps", "required_env"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "workdir": { "type": "string", "minLength": 1 },
+    "shell": { "type": "string", "enum": ["auto", "cmd", "powershell", "sh"] },
+    "encoding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "output_code_page": { "type": "string", "minLength": 1 }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "minLength": 1 },
+          "output_code_page": { "type": "string" },
+          "detach": { "type": "boolean" }
+        }
+      }
+    },
+    "required_env": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "secrets": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Must be a subset of required_env (enforced by CLI, not only JSON Schema)"
+    },
+    "timeout_minutes": { "type": "integer", "minimum": 1 },
+    "allow_concurrent": { "type": "boolean" },
+    "log_paths": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

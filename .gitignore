@@ -13,6 +13,9 @@ app/*
 .env.*
 !.env.*.example
 
+# Contract validator venv (local)
+.venv-contract/
+
 # Editor / OS
 .idea/
 .vscode/
