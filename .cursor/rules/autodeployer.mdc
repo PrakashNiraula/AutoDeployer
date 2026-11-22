@@ -11,6 +11,10 @@ Read `docs/PLAN-v4.md` and `docs/WORKFLOW.md` before starting any issue. The pla
 - One issue per branch (`<issue-number>-<slug>`), one PR per issue, using the PR template. Build only what the acceptance criteria say; extra ideas become new issues.
 - Work on the lowest-numbered `status:ready` issue in the current milestone.
 - Do not start the runner (Phase 1c) before the Phase 0 spike report is approved.
+- NEVER merge your own PR. Wait for green CI on ubuntu and windows, then a reviewer comment starting `PM REVIEW: APPROVED` (signed `-- Claude (PM)`), then the owner merges. Never write that phrase or signature yourself.
+- While CI on `main` is red, work only on issues that make it green.
+- Do not close an issue that is only partly done, and never close owner-action issues (real Windows run, real scripts) yourself.
+- Never move or delete a release tag. See `docs/WORKFLOW.md`, "Merge rules (hard)".
 
 ## Design first, then ask before building
 - Design is done in Figma first (issues #1 to #4). Put the Figma file link in `docs/design/FIGMA.md` and in a comment on #4, with view access for the owner. If you cannot use Figma, stop and ask the owner; do not substitute another tool silently.
@@ -30,7 +34,7 @@ Read `docs/PLAN-v4.md` and `docs/WORKFLOW.md` before starting any issue. The pla
 - Mask secrets in logs and plan output. Never print secret values in confirmation summaries.
 
 ## Code rules
-- Go 1.22+, standard library first, no CGO unless an issue allows it (single static Windows binary is a goal; prefer a pure-Go SQLite driver).
+- Go version: see issue #36 (the minimum is under review; do not raise it again without owner approval). Standard library first, no CGO unless an issue allows it (single static Windows binary is a goal; prefer a pure-Go SQLite driver).
 - Windows-only code goes behind build tags with a Unix equivalent where one makes sense.
 - Error messages must be readable by non-developers (for example: `job.yaml: steps[1].command: file not found: run_java.bat`).
 - Every PR runs `go vet ./...` and `go test ./...` clean.

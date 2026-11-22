@@ -17,6 +17,17 @@
 5. Reviewer checks the PR. Outcome is `status:changes-requested` (with a list of fixes) or approval.
 6. Owner merges after approval. The issue closes and the next one becomes `status:ready`.
 
+## Merge rules (hard)
+
+These exist because earlier PRs (#18 to #30) were merged within seconds, with no review and with red CI.
+
+1. **The builder never merges its own PR.** Only the owner merges.
+2. **CI must be green on both ubuntu-latest and windows-latest.** A red check means the PR is not mergeable, whatever else is true.
+3. **A reviewer comment is required.** A PR is mergeable only after a comment that starts with `PM REVIEW: APPROVED` and ends with the signature line `-- Claude (PM)`. The builder must never write that phrase or signature. `PM REVIEW: CHANGES REQUESTED` means fix and ask again.
+4. **Stop the line.** While CI on `main` is red, the only PRs allowed are the ones that make it green.
+5. **Done means verified.** An issue is closed only when every acceptance criterion is met and its evidence is on the PR. Items that need the owner (real Windows machine, real scripts) stay open until the owner confirms them; the builder must not close or skip them.
+6. **Never move or delete a release tag.** Fix forward with a new tag and honest release notes.
+
 ## Status labels
 
 `status:ready` · `status:in-progress` · `status:in-review` · `status:changes-requested` · `status:blocked` · `status:done`
