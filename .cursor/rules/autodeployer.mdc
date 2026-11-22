@@ -1,0 +1,30 @@
+---
+description: AutoDeployer project rules (locked decisions and working agreement)
+alwaysApply: true
+---
+
+# AutoDeployer: rules for the builder
+
+Read `docs/PLAN-v4.md` and `docs/WORKFLOW.md` before starting any issue. The plan's section C (Decisions log) is locked: do not change those decisions inside a feature PR. If you think one is wrong, open an issue and explain.
+
+## Working agreement
+- One issue per branch (`<issue-number>-<slug>`), one PR per issue, using the PR template. Build only what the acceptance criteria say; extra ideas become new issues.
+- Work on the lowest-numbered `status:ready` issue in the current milestone.
+- Do not start the runner (Phase 1c) before the Phase 0 spike report is approved.
+
+## Architecture rules
+- The core is a headless Go CLI (`cmd/autodeployer`, packages under `internal/`). The CLI is the product. The GUI is a separate repo and never spawns scripts itself.
+- Every run is its own OS process. Closing a GUI must never kill a run.
+- Layout: `project/` is replaced on promote; `data/` is machine-local and is never replaced, committed or deleted by promote.
+- Real secrets live only in `data/env/<job-id>/.env.<profile>`. Only `*.example` templates are committed. Never commit `.env` files, logs or `data/` contents.
+- Exit codes in `internal/exitcode` are a public contract. Do not renumber. JSON shapes and CLI flags change only together with `docs/design/CONTRACT.md`.
+- Time: local machine time with offset in logs and file names; UTC stored in SQLite; order history by UTC.
+- Encoding: decode child output per step code page on line boundaries; always write UTF-8 logs; never crash on undecodable bytes. `auto` means the machine default code page, no sniffing.
+- Tree-kill only on timeout or cancel, never on normal completion. `detach: true` children must survive normal CLI exit.
+- Mask secrets in logs and plan output. Never print secret values in confirmation summaries.
+
+## Code rules
+- Go 1.22+, standard library first, no CGO unless an issue allows it (single static Windows binary is a goal; prefer a pure-Go SQLite driver).
+- Windows-only code goes behind build tags with a Unix equivalent where one makes sense.
+- Error messages must be readable by non-developers (for example: `job.yaml: steps[1].command: file not found: run_java.bat`).
+- Every PR runs `go vet ./...` and `go test ./...` clean.
