@@ -13,8 +13,10 @@ app/*
 .env.*
 !.env.*.example
 
-# Contract validator venv (local)
-.venv-contract/
+# Spike local artifacts
+spike/fixtures/*.class
+spike/fixtures/*.pid
+spike/fixtures/out_cp932_bytes.bin
 
 # Contract validator venv (local)
 .venv-contract/
