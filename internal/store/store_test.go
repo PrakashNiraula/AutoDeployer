@@ -14,7 +14,6 @@ import (
 func TestNewRunIDUnique(t *testing.T) {
 	const n = 10000
 	seenID := make(map[string]struct{}, n)
-	seenShort := make(map[string]struct{}, n)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	errs := make(chan error, n)
@@ -27,6 +26,8 @@ func TestNewRunIDUnique(t *testing.T) {
 				errs <- fmt.Errorf("id len=%d", len(id))
 				return
 			}
+			// short_id is 8 hex chars of the UUID (32 bits). Birthday collisions across
+			// 10k samples are expected occasionally; only the full id must be unique.
 			if len(short) != 8 || short != id[:8] {
 				errs <- fmt.Errorf("short=%q id=%q", short, id)
 				return
@@ -38,12 +39,6 @@ func TestNewRunIDUnique(t *testing.T) {
 				return
 			}
 			seenID[id] = struct{}{}
-			// short_id may collide in theory (48 bits); for 10k samples expect uniqueness
-			if _, ok := seenShort[short]; ok {
-				errs <- fmt.Errorf("duplicate short_id %s", short)
-				return
-			}
-			seenShort[short] = struct{}{}
 		}()
 	}
 	wg.Wait()
