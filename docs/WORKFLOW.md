@@ -23,6 +23,7 @@ These exist because earlier PRs (#18 to #30) were merged within seconds, with no
 
 1. **The builder never merges its own PR.** Only the owner merges.
 2. **CI must be green on both ubuntu-latest and windows-latest.** A red check means the PR is not mergeable, whatever else is true.
+   *Exception while `main` itself is red (otherwise no fix could ever merge):* the owner may merge a PR whose checks are still red only if all three hold: (a) it introduces no new failing test (every failure also fails on `main`, or was hidden because the build did not compile); (b) every remaining failure is tracked by an open issue that the PR description lists; (c) the reviewer comment says "merge exception granted" and names those issues. The exception ends as soon as `main` is green.
 3. **A reviewer comment is required.** A PR is mergeable only after a comment that starts with `PM REVIEW: APPROVED` and ends with the signature line `-- Claude (PM)`. The builder must never write that phrase or signature. `PM REVIEW: CHANGES REQUESTED` means fix and ask again.
 4. **Stop the line.** While CI on `main` is red, the only PRs allowed are the ones that make it green.
 5. **Done means verified.** An issue is closed only when every acceptance criterion is met and its evidence is on the PR. Items that need the owner (real Windows machine, real scripts) stay open until the owner confirms them; the builder must not close or skip them.
