@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>AutoDeployer GUI preview (D4 mirror)</title>
+<style>
+  :root { --shell:#0F172A; --nav:#1E293B; --bg:#F1F5F9; --dev:#0F766E; --uat:#B45309; --prod:#B91C1C; }
+  body { margin:0; font:14px/1.4 Inter,system-ui,sans-serif; background:#94A3B8; color:#0F172A; }
+  h1 { padding:24px; color:#fff; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); gap:24px; padding:0 24px 48px; }
+  .screen { background:var(--shell); border-radius:8px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .top { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; color:#F8FAFC; }
+  .chip { color:#fff; padding:4px 10px; border-radius:4px; font-weight:600; font-size:12px; }
+  .chip.dev { background:var(--dev); } .chip.uat { background:var(--uat); } .chip.prod { background:var(--prod); }
+  .body { display:flex; min-height:260px; background:var(--bg); }
+  nav { width:120px; background:var(--nav); color:#CBD5E1; padding:12px; font-size:13px; }
+  nav div { padding:8px 10px; border-radius:6px; margin-bottom:4px; }
+  nav .on { background:#334155; color:#F8FAFC; font-weight:600; }
+  main { flex:1; padding:16px; }
+  .card { background:#fff; border:1px solid #E2E8F0; border-radius:8px; padding:12px; margin:8px 0; }
+  .btn { display:inline-block; padding:8px 14px; border-radius:6px; color:#fff; font-weight:600; font-size:13px; margin-right:8px; }
+  .btn.g { background:var(--dev); } .btn.r { background:var(--prod); } .btn.n { background:#E2E8F0; color:#0F172A; }
+  .log { background:#0F172A; color:#E2E8F0; font-family:ui-monospace,monospace; font-size:12px; padding:12px; border-radius:8px; }
+  .muted { color:#64748B; } .ok { color:var(--dev); } .warn { color:var(--uat); } .bad { color:var(--prod); }
+  .gate { background:#FEF2F2; border:2px solid var(--prod); border-radius:6px; padding:10px; color:#7F1D1D; font-weight:600; }
+</style>
+</head>
+<body>
+<h1>AutoDeployer — visual review mirror (see Figma page AutoDeployer)</h1>
+<div class="grid">
+  <section class="screen" id="jobs"><div class="top"><strong>Jobs</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">Jobs</div><div>Running</div><div>History</div></nav><main><div style="display:flex;justify-content:space-between"><h3>Jobs</h3><span class="btn g">Run</span></div><div class="card">s3-pull-and-java<br>db-backup</div><div class="card muted">Empty: No jobs — add folder + job.yaml</div></main></div></section>
+  <section class="screen" id="plan"><div class="top"><strong>Plan confirmation</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">Jobs</div></nav><main><h3>Confirm run</h3><div class="card">SFTP_PASSWORD: ***<br><span class="ok">Env validation: OK</span></div><span class="btn n">Cancel</span><span class="btn g">Confirm</span></main></div></section>
+  <section class="screen" id="prod"><div class="top"><strong>Prod confirmation</strong><span class="chip prod">PROD</span></div><div class="body"><nav><div class="on">Jobs</div></nav><main><h3>Production confirmation</h3><div class="card"><div class="gate">prod</div></div><span class="btn r">Start production run</span></main></div></section>
+  <section class="screen" id="running"><div class="top"><strong>Running</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div>Jobs</div><div class="on">Running</div></nav><main><div class="card" style="display:flex;justify-content:space-between;align-items:center">s3-pull-and-java · 01JBEXAM <span class="btn r">Kill</span></div></main></div></section>
+  <section class="screen" id="log"><div class="top"><strong>Live log</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">Running</div></nav><main><div class="log">=== AutoDeployer run ===<br>日本語テスト_utf8<br>ライン2_処理成功</div></main></div></section>
+  <section class="screen" id="history"><div class="top"><strong>History and log</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">History</div></nav><main><div class="card"><span class="ok">succeeded · scheduled · 2 days ago</span><br><span class="warn">skipped · promote_lock</span><br><span class="bad">failed · exit 1</span></div></main></div></section>
+</div>
+</body>
+</html>
