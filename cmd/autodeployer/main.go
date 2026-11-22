@@ -63,6 +63,8 @@ func run(args []string) int {
 		return cmdRun(g, rest[1:])
 	case "cancel":
 		return cmdCancel(g, rest[1:])
+	case "logs":
+		return cmdLogs(g, rest[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", rest[0])
 		return exitcode.Usage
@@ -609,6 +611,34 @@ func cmdRun(g globals, args []string) int {
 	if res.CLIExit != 0 {
 		return res.CLIExit
 	}
+	return exitcode.OK
+}
+
+func cmdLogs(g globals, args []string) int {
+	if len(args) == 0 || args[0] != "tail" || len(args) < 2 {
+		return usage("logs tail <run-id>")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	db, err := store.Open(root.DataDir(r))
+	if err != nil {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	defer db.Close()
+	run, err := db.GetRun(args[1])
+	if err != nil {
+		return fail(exitcode.Usage, "run not found: %s", args[1])
+	}
+	if run.LogPath == "" {
+		return fail(exitcode.Usage, "run has no log path")
+	}
+	b, err := os.ReadFile(run.LogPath)
+	if err != nil {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	_, _ = os.Stdout.Write(b)
 	return exitcode.OK
 }
 
