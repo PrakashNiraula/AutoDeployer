@@ -1,0 +1,43 @@
+{
+  "plan_id": "a3f1c9e8b2d04711deadbeefcafe0011",
+  "job_id": "s3-pull-and-java",
+  "job_name": "S3 Pull then Tomcat Java",
+  "env_profile": "uat",
+  "machine_name": "uat-app-01",
+  "project_version": "a1b2c3d4e5f67890",
+  "workdir": "C:\\AutoDeployer\\project\\jobs\\s3-pull-and-java\\scripts",
+  "timeout_minutes": 60,
+  "encoding": { "output_code_page": "cp932" },
+  "steps": [
+    {
+      "index": 0,
+      "name": "Pull from S3/SFTP",
+      "command": "pull_s3.bat",
+      "output_code_page": "cp932",
+      "detach": false
+    },
+    {
+      "index": 1,
+      "name": "Run Java",
+      "command": "run_java.bat",
+      "output_code_page": "utf-8",
+      "detach": false
+    }
+  ],
+  "env_validation": {
+    "ok": true,
+    "missing": [],
+    "empty": [],
+    "present_masked": {
+      "SFTP_HOST": "sftp.uat.example.com",
+      "SFTP_USER": "ops",
+      "SFTP_PASSWORD": "***",
+      "S3_BUCKET": "uat-bucket",
+      "TOMCAT_HOME": "C:\\tomcat",
+      "JAVA_CLASS": "com.example.Job"
+    }
+  },
+  "active_runs": [],
+  "warnings": [],
+  "can_execute": true
+}

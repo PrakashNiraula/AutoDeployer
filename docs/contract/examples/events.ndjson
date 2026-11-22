@@ -1,0 +1,6 @@
+{"type":"run_start","at":"2026-11-20T02:00:00+09:00","run_id":"01JBEXAMPLE000000000000000","job_id":"s3-pull-and-java","env_profile":"uat","trigger":"gui"}
+{"type":"step_start","at":"2026-11-20T02:00:01+09:00","run_id":"01JBEXAMPLE000000000000000","step_index":0,"name":"Pull from S3/SFTP","command":"pull_s3.bat"}
+{"type":"step_end","at":"2026-11-20T02:00:46+09:00","run_id":"01JBEXAMPLE000000000000000","step_index":0,"exit_code":0,"duration_ms":45000}
+{"type":"step_start","at":"2026-11-20T02:00:46+09:00","run_id":"01JBEXAMPLE000000000000000","step_index":1,"name":"Run Java","command":"run_java.bat"}
+{"type":"step_end","at":"2026-11-20T02:02:46+09:00","run_id":"01JBEXAMPLE000000000000000","step_index":1,"exit_code":0,"duration_ms":120000}
+{"type":"run_end","at":"2026-11-20T02:03:12+09:00","run_id":"01JBEXAMPLE000000000000000","status":"succeeded","exit_code":0}

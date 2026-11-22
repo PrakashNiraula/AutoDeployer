@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autodeployer.local/contract/ndjson_event.schema.json",
+  "title": "NdjsonEvent",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "at", "run_id"],
+      "properties": {
+        "type": { "const": "run_start" },
+        "at": { "type": "string" },
+        "run_id": { "type": "string" },
+        "job_id": { "type": "string" },
+        "env_profile": { "type": "string" },
+        "trigger": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "at", "run_id", "step_index", "name"],
+      "properties": {
+        "type": { "const": "step_start" },
+        "at": { "type": "string" },
+        "run_id": { "type": "string" },
+        "step_index": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "command": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "at", "run_id", "step_index", "exit_code"],
+      "properties": {
+        "type": { "const": "step_end" },
+        "at": { "type": "string" },
+        "run_id": { "type": "string" },
+        "step_index": { "type": "integer", "minimum": 0 },
+        "exit_code": { "type": "integer" },
+        "duration_ms": { "type": "integer" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "at", "run_id", "status"],
+      "properties": {
+        "type": { "const": "run_end" },
+        "at": { "type": "string" },
+        "run_id": { "type": "string" },
+        "status": { "type": "string" },
+        "exit_code": { "type": ["integer", "null"] }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "at", "run_id", "stream", "line"],
+      "properties": {
+        "type": { "const": "log_line" },
+        "at": { "type": "string" },
+        "run_id": { "type": "string" },
+        "stream": { "type": "string", "enum": ["stdout", "stderr"] },
+        "line": { "type": "string" }
+      }
+    }
+  ]
+}
