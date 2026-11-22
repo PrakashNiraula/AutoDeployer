@@ -1,12 +1,18 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/PrakashNiraula/autodeployer/internal/adtime"
+	"github.com/PrakashNiraula/autodeployer/internal/disklocal"
 	"github.com/PrakashNiraula/autodeployer/internal/envfile"
 	"github.com/PrakashNiraula/autodeployer/internal/exitcode"
 	"github.com/PrakashNiraula/autodeployer/internal/job"
@@ -14,6 +20,7 @@ import (
 	"github.com/PrakashNiraula/autodeployer/internal/mask"
 	"github.com/PrakashNiraula/autodeployer/internal/plan"
 	"github.com/PrakashNiraula/autodeployer/internal/root"
+	"github.com/PrakashNiraula/autodeployer/internal/store"
 	"github.com/PrakashNiraula/autodeployer/internal/version"
 )
 
@@ -47,6 +54,10 @@ func run(args []string) int {
 		return cmdPlan(g, rest[1:])
 	case "env":
 		return cmdEnv(g, rest[1:])
+	case "history":
+		return cmdHistory(g, rest[1:])
+	case "doctor":
+		return cmdDoctor(g, rest[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", rest[0])
 		return exitcode.Usage
@@ -231,7 +242,17 @@ func cmdPlan(g globals, args []string) int {
 	if err != nil {
 		return fail(exitcode.Schema, "%s", err)
 	}
-	res, err := plan.Build(r, m, envProfile, cfg, g.AllowExample, nil)
+	var active []plan.ActiveRun
+	if db, err := store.Open(root.DataDir(r)); err == nil {
+		_, _ = db.ReconcileStaleRunning()
+		if runs, err := db.ActiveRuns(jobID); err == nil {
+			for _, run := range runs {
+				active = append(active, plan.ActiveRun{RunID: run.ID, JobID: run.JobID, Status: run.Status})
+			}
+		}
+		_ = db.Close()
+	}
+	res, err := plan.Build(r, m, envProfile, cfg, g.AllowExample, active)
 	if err != nil {
 		if err.Error() == "ENV_NOT_ALLOWED" {
 			return fail(exitcode.EnvNotAllowed, "environment %q is not allowed on this machine", envProfile)
@@ -333,7 +354,12 @@ func cmdEnv(g globals, args []string) int {
 		if err := envfile.SetKey(root.DataDir(r), jobID, profile, key, value); err != nil {
 			return fail(exitcode.Internal, "%s", err)
 		}
-		// audit wired in 1c
+		if db, err := store.Open(root.DataDir(r)); err == nil {
+			aid, _ := store.NewRunID()
+			actor := osUser()
+			_ = db.InsertEnvAudit(aid, actor, jobID, profile, key, adtime.Now())
+			_ = db.Close()
+		}
 		if g.JSON {
 			_ = printJSON(map[string]string{"status": "ok", "key": key})
 		} else {
@@ -343,6 +369,182 @@ func cmdEnv(g globals, args []string) int {
 	default:
 		return usage("env list|get|set ...")
 	}
+}
+
+func cmdHistory(g globals, args []string) int {
+	if len(args) == 0 {
+		return usage("history list|show <run-id>")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	db, err := store.Open(root.DataDir(r))
+	if err != nil {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	defer db.Close()
+	if _, err := db.ReconcileStaleRunning(); err != nil {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	switch args[0] {
+	case "list":
+		flags := parseKV(args[1:])
+		limit := 50
+		if flags["limit"] != "" {
+			if n, err := strconv.Atoi(flags["limit"]); err == nil && n > 0 {
+				limit = n
+			}
+		}
+		list, err := db.ListRuns(flags["job"], limit)
+		if err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		if list == nil {
+			list = []store.Run{}
+		}
+		if g.JSON {
+			_ = printJSON(list)
+		} else {
+			for _, run := range list {
+				fmt.Printf("%s\t%s\t%s\t%s\t%s\n", run.ID, run.JobID, run.EnvProfile, run.Status, run.StartedLocal)
+			}
+		}
+		return exitcode.OK
+	case "show":
+		if len(args) < 2 {
+			return usage("history show <run-id>")
+		}
+		run, err := db.GetRun(args[1])
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fail(exitcode.Usage, "run not found: %s", args[1])
+			}
+			return fail(exitcode.Internal, "%s", err)
+		}
+		steps, err := db.ListSteps(run.ID)
+		if err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		out := map[string]any{"run": run, "steps": steps}
+		if g.JSON {
+			_ = printJSON(out)
+		} else {
+			fmt.Printf("%s %s %s status=%s log=%s\n", run.ID, run.JobID, run.EnvProfile, run.Status, run.LogPath)
+			for _, s := range steps {
+				fmt.Printf("  [%d] %s %s\n", s.StepIndex, s.Name, s.Command)
+			}
+		}
+		return exitcode.OK
+	default:
+		return usage("history list|show <run-id>")
+	}
+}
+
+func cmdDoctor(g globals, args []string) int {
+	fix := false
+	for _, a := range args {
+		if a == "--fix" {
+			fix = true
+		}
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	dataDir := root.DataDir(r)
+	if fix {
+		db, err := store.Open(dataDir)
+		if err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		defer db.Close()
+		result, err := store.ReconcileAll(dataDir, db)
+		if err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		if result.FixedRuns == nil {
+			result.FixedRuns = []string{}
+		}
+		if result.ClearedLocks == nil {
+			result.ClearedLocks = []string{}
+		}
+		if g.JSON {
+			_ = printJSON(result)
+		} else {
+			fmt.Printf("fixed_runs=%d cleared_locks=%d\n", len(result.FixedRuns), len(result.ClearedLocks))
+		}
+		return exitcode.OK
+	}
+
+	checks := []map[string]any{}
+	ok := true
+	local, fstype, derr := disklocal.Check(dataDir)
+	check := map[string]any{"name": "data_local_disk", "ok": local, "fstype": fstype}
+	if derr != nil {
+		check["ok"] = false
+		check["error"] = derr.Error()
+		ok = false
+	} else if !local {
+		ok = false
+		check["error"] = "data/ must be on local disk"
+	}
+	checks = append(checks, check)
+
+	dbOK := true
+	dbErr := ""
+	db, err := store.Open(dataDir)
+	if err != nil {
+		dbOK = false
+		dbErr = err.Error()
+		ok = false
+	} else {
+		_ = db.Close()
+	}
+	checks = append(checks, map[string]any{"name": "sqlite_open", "ok": dbOK, "error": dbErr})
+
+	cfg, err := machine.Load(dataDir)
+	cfgOK := err == nil
+	if err != nil {
+		ok = false
+	}
+	checks = append(checks, map[string]any{
+		"name": "machine_yaml", "ok": cfgOK,
+		"default_output_code_page": cfg.DefaultOutputCodePage,
+		"error": func() string {
+			if err != nil {
+				return err.Error()
+			}
+			return ""
+		}(),
+	})
+
+	absData, _ := filepath.Abs(dataDir)
+	payload := map[string]any{
+		"ok":          ok,
+		"checks":      checks,
+		"data_dir":    absData,
+		"backup_hint": "Back up this directory (history, env, schedules).",
+	}
+	if g.JSON {
+		_ = printJSON(payload)
+	} else {
+		fmt.Printf("ok=%v\ndata_dir=%s\n%s\n", ok, absData, payload["backup_hint"])
+		for _, c := range checks {
+			fmt.Printf("- %s: %v\n", c["name"], c["ok"])
+		}
+	}
+	if !ok {
+		return exitcode.Internal
+	}
+	return exitcode.OK
+}
+
+func osUser() string {
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		return u.Username
+	}
+	return "unknown"
 }
 
 func parseJobEnv(args []string) (jobID, env string, err error) {
