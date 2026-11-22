@@ -12,6 +12,12 @@ Read `docs/PLAN-v4.md` and `docs/WORKFLOW.md` before starting any issue. The pla
 - Work on the lowest-numbered `status:ready` issue in the current milestone.
 - Do not start the runner (Phase 1c) before the Phase 0 spike report is approved.
 
+## Design first, then ask before building
+- Design is done in Figma first (issues #1 to #4). Put the Figma file link in `docs/design/FIGMA.md` and in a comment on #4, with view access for the owner. If you cannot use Figma, stop and ask the owner; do not substitute another tool silently.
+- When design is finished, STOP. Post the confirmation request described in `docs/WORKFLOW.md` on issue #5 and wait for the owner to reply `APPROVED`. Do not create any Phase 1 branch, Go code or tests before that reply.
+- Repeat the same stop-and-ask before the runner (after the spike, issue #8) and before Phases 2, 3 and 4.
+- If you are unsure whether you have approval, you do not. Ask.
+
 ## Architecture rules
 - The core is a headless Go CLI (`cmd/autodeployer`, packages under `internal/`). The CLI is the product. The GUI is a separate repo and never spawns scripts itself.
 - Every run is its own OS process. Closing a GUI must never kill a run.
