@@ -191,6 +191,19 @@ UPDATE runs SET status=?, exit_code=?, error_summary=?,
 	return err
 }
 
+// SetPID updates the live process id for a running row.
+func (d *DB) SetPID(id string, pid int) error {
+	_, err := d.sql.Exec(`UPDATE runs SET pid=? WHERE id=?`, pid, id)
+	return err
+}
+
+// StatusOf returns the current status string for a run.
+func (d *DB) StatusOf(id string) (string, error) {
+	var s string
+	err := d.sql.QueryRow(`SELECT status FROM runs WHERE id=?`, id).Scan(&s)
+	return s, err
+}
+
 // UpsertStep inserts or replaces a step row.
 func (d *DB) UpsertStep(s Step) error {
 	detach := 0
