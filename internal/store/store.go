@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/PrakashNiraula/autodeployer/internal/adtime"
 	"github.com/PrakashNiraula/autodeployer/internal/lockfile"
 	"github.com/PrakashNiraula/autodeployer/internal/procinfo"
+	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
@@ -472,15 +473,11 @@ func (d *DB) InsertDeployment(id, oldVer, newVer, source, actor, status string, 
 	return err
 }
 
-// NewRunID returns a unique run id and 8-char short id.
+// NewRunID returns a unique run id (UUID, no dashes) and an 8-char short id
+// taken from the random hex (plan §4.8 / CONTRACT: ULID or UUID). Not PID-based.
 func NewRunID() (id, short string) {
-	id = fmt.Sprintf("%d%06d", time.Now().UnixNano(), os.Getpid()%1000000)
-	if len(id) > 26 {
-		id = id[:26]
-	}
-	short = id
-	if len(short) > 8 {
-		short = short[len(short)-8:]
-	}
+	u := uuid.New()
+	id = strings.ReplaceAll(u.String(), "-", "")
+	short = id[:8]
 	return id, short
 }

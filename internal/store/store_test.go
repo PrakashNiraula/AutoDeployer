@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -9,6 +10,48 @@ import (
 	"github.com/PrakashNiraula/autodeployer/internal/adtime"
 	"github.com/PrakashNiraula/autodeployer/internal/lockfile"
 )
+
+func TestNewRunIDUnique(t *testing.T) {
+	const n = 10000
+	seenID := make(map[string]struct{}, n)
+	seenShort := make(map[string]struct{}, n)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			id, short := NewRunID()
+			if len(id) != 32 {
+				errs <- fmt.Errorf("id len=%d", len(id))
+				return
+			}
+			if len(short) != 8 || short != id[:8] {
+				errs <- fmt.Errorf("short=%q id=%q", short, id)
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if _, ok := seenID[id]; ok {
+				errs <- fmt.Errorf("duplicate id %s", id)
+				return
+			}
+			seenID[id] = struct{}{}
+			// short_id may collide in theory (48 bits); for 10k samples expect uniqueness
+			if _, ok := seenShort[short]; ok {
+				errs <- fmt.Errorf("duplicate short_id %s", short)
+				return
+			}
+			seenShort[short] = struct{}{}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatal(err)
+	}
+}
 
 func TestTwoWritersWAL(t *testing.T) {
 	dir := t.TempDir()
