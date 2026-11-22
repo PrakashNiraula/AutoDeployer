@@ -1,0 +1,17 @@
+schema_version: 1
+id: db-backup
+name: Database Backup
+description: |
+  STUB job: dumps the database into the job output directory.
+workdir: scripts
+shell: auto
+encoding:
+  output_code_page: auto
+steps:
+  - name: Backup
+    command: backup.bat
+required_env: [DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]
+secrets: [DB_PASSWORD]
+timeout_minutes: 30
+allow_concurrent: false
+log_paths: []

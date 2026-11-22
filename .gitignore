@@ -1,0 +1,19 @@
+# Machine-local data: never commit (secrets, logs, history, schedules)
+data/*
+!data/.gitkeep
+
+# Build output
+app/*
+!app/.gitkeep
+*.exe
+/bin/
+
+# Real env files (only *.example templates are committed)
+.env
+.env.*
+!.env.*.example
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

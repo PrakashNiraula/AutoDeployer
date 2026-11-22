@@ -1,0 +1,22 @@
+schema_version: 1
+id: s3-pull-and-java
+name: S3 Pull then Tomcat Java
+description: |
+  Pull files via SFTP/S3, then invoke a Java class under Tomcat.
+  STUB job: replace the scripts with the real ones.
+workdir: scripts
+shell: auto
+encoding:
+  output_code_page: auto        # = machine default; no sniffing
+steps:
+  - name: Pull from S3/SFTP
+    command: pull_s3.bat
+    output_code_page: cp932
+  - name: Run Java
+    command: run_java.bat
+    output_code_page: utf-8
+required_env: [SFTP_HOST, SFTP_USER, SFTP_PASSWORD, S3_BUCKET, TOMCAT_HOME, JAVA_CLASS]
+secrets: [SFTP_PASSWORD]
+timeout_minutes: 60
+allow_concurrent: false
+log_paths: []
