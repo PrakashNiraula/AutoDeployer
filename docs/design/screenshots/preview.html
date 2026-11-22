@@ -2,38 +2,83 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>AutoDeployer GUI preview (D4 mirror)</title>
+<title>AutoDeployer — job-as-project preview</title>
 <style>
   :root { --shell:#0F172A; --nav:#1E293B; --bg:#F1F5F9; --dev:#0F766E; --uat:#B45309; --prod:#B91C1C; }
-  body { margin:0; font:14px/1.4 Inter,system-ui,sans-serif; background:#94A3B8; color:#0F172A; }
-  h1 { padding:24px; color:#fff; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); gap:24px; padding:0 24px 48px; }
-  .screen { background:var(--shell); border-radius:8px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  body { margin:0; font:14px/1.45 Inter,system-ui,sans-serif; background:#64748B; color:#0F172A; }
+  h1 { padding:20px 24px 8px; color:#fff; font-size:20px; }
+  p.lead { padding:0 24px 20px; color:#E2E8F0; max-width:900px; }
+  .grid { display:grid; grid-template-columns:1fr; gap:28px; padding:0 24px 48px; }
+  @media(min-width:1100px){ .grid{ grid-template-columns:1fr 1fr; } }
+  .screen { background:var(--shell); border-radius:10px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); min-height:420px; }
   .top { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; color:#F8FAFC; }
-  .chip { color:#fff; padding:4px 10px; border-radius:4px; font-weight:600; font-size:12px; }
-  .chip.dev { background:var(--dev); } .chip.uat { background:var(--uat); } .chip.prod { background:var(--prod); }
-  .body { display:flex; min-height:260px; background:var(--bg); }
-  nav { width:120px; background:var(--nav); color:#CBD5E1; padding:12px; font-size:13px; }
-  nav div { padding:8px 10px; border-radius:6px; margin-bottom:4px; }
-  nav .on { background:#334155; color:#F8FAFC; font-weight:600; }
+  .chip { color:#fff; padding:4px 10px; border-radius:4px; font-weight:600; font-size:12px; background:var(--uat); }
+  .chip.prod { background:var(--prod); }
+  .body { display:flex; min-height:360px; background:var(--bg); }
+  .gnav { width:140px; background:var(--nav); color:#CBD5E1; padding:12px; font-size:13px; }
+  .gnav div { padding:8px 10px; border-radius:6px; margin-bottom:4px; }
+  .gnav .on { background:#334155; color:#F8FAFC; font-weight:600; }
   main { flex:1; padding:16px; }
   .card { background:#fff; border:1px solid #E2E8F0; border-radius:8px; padding:12px; margin:8px 0; }
-  .btn { display:inline-block; padding:8px 14px; border-radius:6px; color:#fff; font-weight:600; font-size:13px; margin-right:8px; }
-  .btn.g { background:var(--dev); } .btn.r { background:var(--prod); } .btn.n { background:#E2E8F0; color:#0F172A; }
-  .log { background:#0F172A; color:#E2E8F0; font-family:ui-monospace,monospace; font-size:12px; padding:12px; border-radius:8px; }
-  .muted { color:#64748B; } .ok { color:var(--dev); } .warn { color:var(--uat); } .bad { color:var(--prod); }
-  .gate { background:#FEF2F2; border:2px solid var(--prod); border-radius:6px; padding:10px; color:#7F1D1D; font-weight:600; }
+  .btn { display:inline-block; padding:8px 14px; border-radius:6px; color:#fff; font-weight:600; font-size:13px; margin-right:8px; background:var(--dev); }
+  .btn.g { background:#334155; }
+  .meta { font-size:12px; color:#64748B; }
+  .ok { color:var(--dev); } .warn { color:var(--uat); }
+  .tabs { display:flex; gap:4px; background:var(--nav); padding:8px 16px 0; }
+  .tabs span { padding:10px 14px; border-radius:6px 6px 0 0; color:#94A3B8; font-size:13px; }
+  .tabs .on { background:var(--shell); color:#F8FAFC; font-weight:600; }
+  .files { display:flex; min-height:320px; }
+  .tree { width:220px; background:#0F172A; color:#CBD5E1; padding:12px; font:12px/1.6 ui-monospace,monospace; }
+  .tree .sel { background:#334155; color:#fff; border-radius:4px; padding:4px 8px; }
+  .viewer { flex:1; padding:12px; background:var(--bg); }
+  .code { background:#0F172A; color:#E2E8F0; font:12px/1.5 ui-monospace,monospace; padding:14px; border-radius:8px; min-height:240px; }
+  .readme h2 { margin:0 0 8px; } .readme p { margin:0 0 8px; color:#334155; }
 </style>
 </head>
 <body>
-<h1>AutoDeployer — visual review mirror (see Figma page AutoDeployer)</h1>
+<h1>AutoDeployer — job-as-project (design revision)</h1>
+<p class="lead">Main visualization: Jobs catalog → open job → README homepage + Files tree/code viewer (GitHub-like). Figma page AutoDeployer holds the frames.</p>
 <div class="grid">
-  <section class="screen" id="jobs"><div class="top"><strong>Jobs</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">Jobs</div><div>Running</div><div>History</div></nav><main><div style="display:flex;justify-content:space-between"><h3>Jobs</h3><span class="btn g">Run</span></div><div class="card">s3-pull-and-java<br>db-backup</div><div class="card muted">Empty: No jobs — add folder + job.yaml</div></main></div></section>
-  <section class="screen" id="plan"><div class="top"><strong>Plan confirmation</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">Jobs</div></nav><main><h3>Confirm run</h3><div class="card">SFTP_PASSWORD: ***<br><span class="ok">Env validation: OK</span></div><span class="btn n">Cancel</span><span class="btn g">Confirm</span></main></div></section>
-  <section class="screen" id="prod"><div class="top"><strong>Prod confirmation</strong><span class="chip prod">PROD</span></div><div class="body"><nav><div class="on">Jobs</div></nav><main><h3>Production confirmation</h3><div class="card"><div class="gate">prod</div></div><span class="btn r">Start production run</span></main></div></section>
-  <section class="screen" id="running"><div class="top"><strong>Running</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div>Jobs</div><div class="on">Running</div></nav><main><div class="card" style="display:flex;justify-content:space-between;align-items:center">s3-pull-and-java · 01JBEXAM <span class="btn r">Kill</span></div></main></div></section>
-  <section class="screen" id="log"><div class="top"><strong>Live log</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">Running</div></nav><main><div class="log">=== AutoDeployer run ===<br>日本語テスト_utf8<br>ライン2_処理成功</div></main></div></section>
-  <section class="screen" id="history"><div class="top"><strong>History and log</strong><span class="chip uat">UAT</span></div><div class="body"><nav><div class="on">History</div></nav><main><div class="card"><span class="ok">succeeded · scheduled · 2 days ago</span><br><span class="warn">skipped · promote_lock</span><br><span class="bad">failed · exit 1</span></div></main></div></section>
+
+<section class="screen">
+  <div class="top"><strong>Jobs catalog</strong><span class="chip">UAT</span></div>
+  <div class="body">
+    <div class="gnav"><div class="on">Jobs</div><div>Running</div><div>History</div><div>Deployments</div></div>
+    <main>
+      <h3>Jobs (projects)</h3>
+      <div class="card"><strong>s3-pull-and-java</strong><div class="meta">S3 Pull then Tomcat Java</div><div><span class="ok">Last: succeeded · 2d ago</span> · <span class="warn">Schedule: nightly 02:00</span></div></div>
+      <div class="card"><strong>db-backup</strong><div class="meta">Database backup stub</div><div><span class="warn">Last: skipped · promote_lock</span> · Schedule: —</div></div>
+    </main>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span><span class="chip">UAT</span> <span class="btn g">Plan</span> <span class="btn">Run</span></span></div>
+  <div class="tabs"><span class="on">Overview</span><span>Files</span><span>Schedules</span><span>Runs</span><span>Env</span></div>
+  <div class="body" style="display:block;padding:16px">
+    <div class="card readme">
+      <h2>S3 Pull then Tomcat Java</h2>
+      <p>This job pulls files via SFTP/S3, then invokes a Java class under Tomcat.</p>
+      <p><strong>Steps</strong> — 1. pull_s3.bat (cp932) · 2. run_java.bat (utf-8)</p>
+      <p class="meta">README.md homepage (like GitHub). Edit the file in your IDE; GUI renders it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="screen" style="grid-column:1/-1">
+  <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span class="chip">UAT</span></div>
+  <div class="tabs"><span>Overview</span><span class="on">Files</span><span>Schedules</span><span>Runs</span><span>Env</span></div>
+  <div class="files">
+    <div class="tree">
+      README.md<br/>job.yaml<br/>scripts/<br/><div class="sel">  pull_s3.bat</div>  run_java.bat<br/>env/<br/>  .env.uat.example
+    </div>
+    <div class="viewer">
+      <div class="meta">scripts/pull_s3.bat · view only · edit in IDE</div>
+      <div class="code">@echo off<br/>REM Pull via SFTP — uses %SFTP_HOST%<br/>echo 日本語テスト_cp932<br/>exit /b 0</div>
+    </div>
+  </div>
+</section>
+
 </div>
 </body>
 </html>
