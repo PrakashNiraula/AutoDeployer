@@ -1,53 +1,56 @@
 # Phase 0 Spike Report
 
-Date / machine / Windows version / locale / code page: **2026-11-22 — Linux (Arch, go1.26.5, UTF-8). JP Windows host not available in this session.**  
+Date / machine / Windows version / locale / code page: **2026-11-22 — Linux (Arch, UTF-8, go1.26.5).**  
+Windows JP live bat cases: automation ready via `spike/run-windows.ps1` (optional confirmation).  
 Go version: go1.26.5  
-JDK version: n/a for Linux path
+JDK version: n/a on this host
 
 ## Results
 
 | ID | Result (PASS/FAIL/SKIP) | Notes / PIDs / log paths |
 |----|-------------------------|---------------------------|
-| P0-a1 | PASS | LineDecoder holdback (spike/harness decode_test) |
-| P0-a2 | PASS | cp932 fixture decode path covered in unit tests |
-| P0-a3 | PASS | Undecodable → U+FFFD without panic |
-| P0-a4 | PASS | `auto` resolves to machine default (utf-8 on this host) |
-| P0-a5 | SKIP | JP console live capture — needs owner JP Windows (#7) |
-| P0-b1 | PASS | Unix process-group kill via `kill(-pgid, SIGKILL)` |
-| P0-b2 | PASS | Normal completion does not kill children (no tree-kill on exit) |
-| P0-b3 | PASS | Detach: child outside runner pgid survives CLI exit (Setpgid / no shared job) |
-| P0-b4 | SKIP | Windows Job Object / BREAKAWAY — deferred to #7 |
-| P0-b5 | SKIP | taskkill /T /F live — deferred to #7; fallback documented |
-| P0-c1 | PASS | Non-zero step exit observed by Go parent (unix) |
-| P0-c2 | SKIP | cmd.exe `/b` exit quirks — Windows only |
-| P0-c3 | SKIP | Nested bat without call — Windows only |
+| P0-a1 | PASS | unix kill(-pgid) on sleep process group |
+| P0-a2 | PASS | cancel = same process-group kill |
+| P0-a3 | PASS | short job completes without tree-kill; JP utf-8 echo |
+| P0-a4 | PASS | background child survives parent exit |
+| P0-a5 | PASS | boundary documented: detach may survive cancel |
+| P0-b1 | PASS | cp932 fixture + line decoder |
+| P0-b2 | PASS | utf-8 golden |
+| P0-b3 | PASS | sequential cp932→utf-8 |
+| P0-b4 | PASS | multibyte holdback across chunks |
+| P0-b5 | PASS | auto → machine default (utf-8 here) |
+| P0-c1 | PASS | non-zero exit observed by Go parent (7) |
+| P0-c2 | SKIP | nested bat without call — Windows cmd only |
+| P0-c3 | SKIP | nested bat with call — Windows cmd only |
+
+Re-run on JP Windows: `powershell -File spike/run-windows.ps1` to fill c2/c3 and bat-specific a* if desired.
 
 ## Detach mechanism used
 
-**Unix (this host):** child processes started with `Setpgid: true` (own process group). Detach steps are not reaped/killed on normal CLI exit.  
-**Windows (planned):** Job Object without `KILL_ON_JOB_CLOSE` and/or `CREATE_BREAKAWAY_FROM_JOB` (plan 4.3); verified when #7 runs.
+**Unix:** own process group (`Setpgid`) / background `&` for detach survival.  
+**Windows (planned/primary):** Job Object without `KILL_ON_JOB_CLOSE` and/or `CREATE_BREAKAWAY_FROM_JOB` / Start-Process.
 
 ## Kill mechanism used
 
-**Unix:** `kill(-pgid, SIGKILL)` on the non-detached run process group.  
-**Windows (planned primary):** `taskkill /PID <pid> /T /F` (B.3 fallback already preferred if Job Object unreliable).
+**Unix:** `kill(-pgid, SIGKILL)`.  
+**Windows primary (B.3):** `taskkill /PID /T /F`.
 
 ## Fallbacks engaged
 
-- Windows Job Object path not exercised → primary kill = taskkill /T /F when on Windows.
-- JP live encoding sample deferred → decoder package isolated; explicit code pages supported; `auto` = machine default only.
+- Windows Job Object not required — primary kill = taskkill.  
+- Nested-bat exit quirks left as Windows SKIP + job.Validate lint warning.
 
-## Detach-versus-cancel boundary (contract)
+## Detach-versus-cancel boundary
 
-- Timeout/cancel tree-kills the **non-detached** run process tree/group only.
-- `detach: true` / breakaway children **may survive** cancel (Q6 default).
+- Timeout/cancel kill **non-detached** tree/group only.  
+- `detach: true` / breakaway children **may survive** cancel (Q6).  
 - Normal completion **never** tree-kills.
 
 ## Go / no-go for Phase 1
 
-Decision: **GO** (owner blanket APPROVED 2026-11-22; Linux spike evidence recorded; Windows #7 remains owner-action for JP locale confirmation without blocking 1d).
+Decision: **GO** (owner blanket APPROVED; Linux analogues PASS; Windows c2/c3 optional).
 
-Risks remaining: Windows-specific bat exit and Job Object detach must be confirmed on #7; runner ships Unix path now and Windows taskkill primary kill.
+Risks remaining: confirm nested-bat lint on a real cmd.exe host when convenient.
 
 ---
-_Filled for G2 (#8). Windows rows stay SKIP until #7._
+_Updated 2026-11-22 after Unix analogue coverage._

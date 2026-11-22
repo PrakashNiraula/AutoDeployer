@@ -2,83 +2,461 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>AutoDeployer — job-as-project preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AutoDeployer — full GUI preview (all cases)</title>
 <style>
-  :root { --shell:#0F172A; --nav:#1E293B; --bg:#F1F5F9; --dev:#0F766E; --uat:#B45309; --prod:#B91C1C; }
-  body { margin:0; font:14px/1.45 Inter,system-ui,sans-serif; background:#64748B; color:#0F172A; }
-  h1 { padding:20px 24px 8px; color:#fff; font-size:20px; }
-  p.lead { padding:0 24px 20px; color:#E2E8F0; max-width:900px; }
-  .grid { display:grid; grid-template-columns:1fr; gap:28px; padding:0 24px 48px; }
-  @media(min-width:1100px){ .grid{ grid-template-columns:1fr 1fr; } }
-  .screen { background:var(--shell); border-radius:10px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); min-height:420px; }
-  .top { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; color:#F8FAFC; }
-  .chip { color:#fff; padding:4px 10px; border-radius:4px; font-weight:600; font-size:12px; background:var(--uat); }
+  :root {
+    --shell:#0F172A; --nav:#1E293B; --bg:#F1F5F9; --card:#fff;
+    --dev:#0F766E; --uat:#B45309; --prod:#B91C1C;
+    --ok:#0F766E; --warn:#B45309; --bad:#B91C1C; --muted:#64748B;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif; background:#475569; color:#0F172A; }
+  header.page {
+    position: sticky; top:0; z-index:5;
+    background:linear-gradient(180deg,#0F172A,#1E293B);
+    color:#F8FAFC; padding:16px 24px 12px;
+    border-bottom:1px solid #334155;
+  }
+  header.page h1 { margin:0 0 6px; font:600 22px/1.2 "IBM Plex Sans", sans-serif; letter-spacing:-0.02em; }
+  header.page p { margin:0 0 12px; color:#CBD5E1; max-width:920px; }
+  .toc { display:flex; flex-wrap:wrap; gap:8px; }
+  .toc a {
+    color:#E2E8F0; text-decoration:none; font-size:12px; font-weight:600;
+    padding:6px 10px; border-radius:6px; background:#334155;
+  }
+  .toc a:hover { background:#475569; }
+  .status-bar {
+    margin-top:12px; font-size:12px; color:#94A3B8;
+    display:flex; flex-wrap:wrap; gap:12px;
+  }
+  .status-bar b { color:#F8FAFC; }
+  .wrap { padding:24px; display:flex; flex-direction:column; gap:28px; max-width:1280px; margin:0 auto; }
+  .case { scroll-margin-top:100px; }
+  .case > h2 {
+    margin:0 0 8px; color:#F8FAFC; font-size:16px; font-weight:600;
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .case > h2 .tag {
+    font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+    background:#0F766E; color:#fff; padding:3px 8px; border-radius:4px;
+  }
+  .case > h2 .tag.warn { background:#B45309; }
+  .case > .note { margin:0 0 10px; color:#E2E8F0; font-size:13px; }
+  .screen {
+    background:var(--shell); border-radius:10px; overflow:hidden;
+    box-shadow:0 12px 32px rgba(0,0,0,.35); min-height:380px;
+  }
+  .top { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; color:#F8FAFC; gap:12px; flex-wrap:wrap; }
+  .chip { color:#fff; padding:4px 10px; border-radius:4px; font-weight:700; font-size:12px; background:var(--uat); }
+  .chip.dev { background:var(--dev); }
   .chip.prod { background:var(--prod); }
-  .body { display:flex; min-height:360px; background:var(--bg); }
-  .gnav { width:140px; background:var(--nav); color:#CBD5E1; padding:12px; font-size:13px; }
+  .body { display:flex; min-height:340px; background:var(--bg); }
+  .gnav { width:148px; flex-shrink:0; background:var(--nav); color:#CBD5E1; padding:12px; font-size:13px; }
   .gnav div { padding:8px 10px; border-radius:6px; margin-bottom:4px; }
   .gnav .on { background:#334155; color:#F8FAFC; font-weight:600; }
-  main { flex:1; padding:16px; }
-  .card { background:#fff; border:1px solid #E2E8F0; border-radius:8px; padding:12px; margin:8px 0; }
+  main { flex:1; padding:16px; min-width:0; }
+  .card { background:var(--card); border:1px solid #E2E8F0; border-radius:8px; padding:12px; margin:8px 0; }
   .btn { display:inline-block; padding:8px 14px; border-radius:6px; color:#fff; font-weight:600; font-size:13px; margin-right:8px; background:var(--dev); }
   .btn.g { background:#334155; }
-  .meta { font-size:12px; color:#64748B; }
-  .ok { color:var(--dev); } .warn { color:var(--uat); }
-  .tabs { display:flex; gap:4px; background:var(--nav); padding:8px 16px 0; }
-  .tabs span { padding:10px 14px; border-radius:6px 6px 0 0; color:#94A3B8; font-size:13px; }
+  .btn.bad { background:var(--bad); }
+  .btn.warn { background:var(--uat); }
+  .meta { font-size:12px; color:var(--muted); }
+  .ok { color:var(--ok); font-weight:600; }
+  .warn { color:var(--warn); font-weight:600; }
+  .bad { color:var(--bad); font-weight:600; }
+  .tabs { display:flex; gap:4px; background:var(--nav); padding:8px 16px 0; overflow-x:auto; }
+  .tabs span { padding:10px 14px; border-radius:6px 6px 0 0; color:#94A3B8; font-size:13px; white-space:nowrap; }
   .tabs .on { background:var(--shell); color:#F8FAFC; font-weight:600; }
   .files { display:flex; min-height:320px; }
-  .tree { width:220px; background:#0F172A; color:#CBD5E1; padding:12px; font:12px/1.6 ui-monospace,monospace; }
+  .tree { width:220px; flex-shrink:0; background:#0F172A; color:#CBD5E1; padding:12px; font:12px/1.6 ui-monospace,monospace; }
   .tree .sel { background:#334155; color:#fff; border-radius:4px; padding:4px 8px; }
-  .viewer { flex:1; padding:12px; background:var(--bg); }
-  .code { background:#0F172A; color:#E2E8F0; font:12px/1.5 ui-monospace,monospace; padding:14px; border-radius:8px; min-height:240px; }
-  .readme h2 { margin:0 0 8px; } .readme p { margin:0 0 8px; color:#334155; }
+  .viewer { flex:1; padding:12px; background:var(--bg); min-width:0; }
+  .code { background:#0F172A; color:#E2E8F0; font:12px/1.5 ui-monospace,monospace; padding:14px; border-radius:8px; min-height:200px; overflow:auto; }
+  .readme h2 { margin:0 0 8px; }
+  .readme p { margin:0 0 8px; color:#334155; }
+  table.tbl { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
+  table.tbl th, table.tbl td { text-align:left; padding:10px 12px; border-bottom:1px solid #E2E8F0; font-size:13px; }
+  table.tbl th { background:#F8FAFC; color:#475569; font-size:12px; }
+  .modal-back {
+    background:rgba(15,23,42,.55); min-height:360px; display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .modal {
+    background:#fff; border-radius:10px; padding:20px; width:min(520px,100%);
+    box-shadow:0 20px 50px rgba(0,0,0,.35);
+  }
+  .modal h3 { margin:0 0 8px; }
+  .kv { font:12px/1.6 ui-monospace,monospace; background:#F1F5F9; padding:10px; border-radius:6px; margin:10px 0; }
+  .empty { text-align:center; padding:48px 16px; color:#64748B; }
+  .empty strong { display:block; color:#0F172A; margin-bottom:6px; font-size:16px; }
+  .log {
+    background:#0F172A; color:#E2E8F0; font:12px/1.5 ui-monospace,monospace;
+    padding:14px; border-radius:8px; min-height:220px; white-space:pre-wrap;
+  }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+  .badge.ok { background:#CCFBF1; color:#0F766E; }
+  .badge.warn { background:#FFEDD5; color:#B45309; }
+  .badge.bad { background:#FEE2E2; color:#B91C1C; }
+  .badge.run { background:#DBEAFE; color:#1D4ED8; }
+  .grid2 { display:grid; gap:28px; }
+  @media(min-width:1100px){ .grid2{ grid-template-columns:1fr 1fr; } }
+  footer.page { color:#CBD5E1; text-align:center; padding:8px 24px 40px; font-size:12px; }
 </style>
 </head>
 <body>
-<h1>AutoDeployer — job-as-project (design revision)</h1>
-<p class="lead">Main visualization: Jobs catalog → open job → README homepage + Files tree/code viewer (GitHub-like). Figma page AutoDeployer holds the frames.</p>
-<div class="grid">
-
-<section class="screen">
-  <div class="top"><strong>Jobs catalog</strong><span class="chip">UAT</span></div>
-  <div class="body">
-    <div class="gnav"><div class="on">Jobs</div><div>Running</div><div>History</div><div>Deployments</div></div>
-    <main>
-      <h3>Jobs (projects)</h3>
-      <div class="card"><strong>s3-pull-and-java</strong><div class="meta">S3 Pull then Tomcat Java</div><div><span class="ok">Last: succeeded · 2d ago</span> · <span class="warn">Schedule: nightly 02:00</span></div></div>
-      <div class="card"><strong>db-backup</strong><div class="meta">Database backup stub</div><div><span class="warn">Last: skipped · promote_lock</span> · Schedule: —</div></div>
-    </main>
+<header class="page">
+  <h1>AutoDeployer — full GUI preview</h1>
+  <p>All design cases from GUI-FLOWS (job-as-project). Core CLI Phases 1–3 shipped; this is the thin-GUI visual contract for Phase 4.</p>
+  <nav class="toc">
+    <a href="#jobs">Jobs catalog</a>
+    <a href="#empty">Empty catalog</a>
+    <a href="#overview">Job Overview</a>
+    <a href="#files">Job Files</a>
+    <a href="#schedules">Job Schedules</a>
+    <a href="#runs">Job Runs</a>
+    <a href="#env">Job Env</a>
+    <a href="#plan">Plan confirm</a>
+    <a href="#prod">Prod confirm</a>
+    <a href="#running">Running + Kill</a>
+    <a href="#history">History + log</a>
+    <a href="#live">Live log</a>
+    <a href="#deploy">Deployments</a>
+    <a href="#doctor">Doctor</a>
+    <a href="#blocked">Validation blocked</a>
+    <a href="#drift">Schedule drift</a>
+  </nav>
+  <div class="status-bar">
+    <span><b>Done:</b> Design D1–D5 · Spike G2 · Core #10–#16 · tags v0.1.0 / v0.2.0</span>
+    <span><b>Open (owner):</b> #7 JP Windows spike · #9 real scripts · #17 GUI repo</span>
   </div>
-</section>
+</header>
 
-<section class="screen">
-  <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span><span class="chip">UAT</span> <span class="btn g">Plan</span> <span class="btn">Run</span></span></div>
-  <div class="tabs"><span class="on">Overview</span><span>Files</span><span>Schedules</span><span>Runs</span><span>Env</span></div>
-  <div class="body" style="display:block;padding:16px">
-    <div class="card readme">
-      <h2>S3 Pull then Tomcat Java</h2>
-      <p>This job pulls files via SFTP/S3, then invokes a Java class under Tomcat.</p>
-      <p><strong>Steps</strong> — 1. pull_s3.bat (cp932) · 2. run_java.bat (utf-8)</p>
-      <p class="meta">README.md homepage (like GitHub). Edit the file in your IDE; GUI renders it.</p>
+<div class="wrap">
+
+<!-- 1 Jobs catalog -->
+<section class="case" id="jobs">
+  <h2>Jobs catalog <span class="tag">global</span></h2>
+  <p class="note">Project cards with last-run + schedule badges. Click opens Job Overview.</p>
+  <div class="screen">
+    <div class="top"><strong>AutoDeployer</strong><span><span class="chip">UAT</span> machine: uat-app-01</span></div>
+    <div class="body">
+      <div class="gnav"><div class="on">Jobs</div><div>Running</div><div>History</div><div>Deployments</div><div>Doctor</div></div>
+      <main>
+        <h3 style="margin:0 0 8px">Jobs (projects)</h3>
+        <div class="card">
+          <strong>s3-pull-and-java</strong>
+          <div class="meta">S3 Pull then Tomcat Java</div>
+          <div><span class="ok">Last: succeeded · 2d ago</span> · <span class="warn">Schedule: nightly 02:00</span></div>
+        </div>
+        <div class="card">
+          <strong>db-backup</strong>
+          <div class="meta">Database backup stub</div>
+          <div><span class="warn">Last: skipped · promote_lock</span> · Schedule: —</div>
+        </div>
+      </main>
     </div>
   </div>
 </section>
 
-<section class="screen" style="grid-column:1/-1">
-  <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span class="chip">UAT</span></div>
-  <div class="tabs"><span>Overview</span><span class="on">Files</span><span>Schedules</span><span>Runs</span><span>Env</span></div>
-  <div class="files">
-    <div class="tree">
-      README.md<br/>job.yaml<br/>scripts/<br/><div class="sel">  pull_s3.bat</div>  run_java.bat<br/>env/<br/>  .env.uat.example
-    </div>
-    <div class="viewer">
-      <div class="meta">scripts/pull_s3.bat · view only · edit in IDE</div>
-      <div class="code">@echo off<br/>REM Pull via SFTP — uses %SFTP_HOST%<br/>echo 日本語テスト_cp932<br/>exit /b 0</div>
+<!-- Empty -->
+<section class="case" id="empty">
+  <h2>Empty catalog <span class="tag warn">state</span></h2>
+  <p class="note">No <code>project/jobs/*/job.yaml</code> discovered.</p>
+  <div class="screen">
+    <div class="top"><strong>Jobs</strong><span class="chip dev">DEV</span></div>
+    <div class="body">
+      <div class="gnav"><div class="on">Jobs</div><div>Running</div><div>History</div><div>Deployments</div><div>Doctor</div></div>
+      <main>
+        <div class="empty">
+          <strong>No jobs yet</strong>
+          Add <code>project/jobs/&lt;id&gt;/job.yaml</code> then refresh.<br/>
+          <span class="btn" style="margin-top:12px">Refresh catalog</span>
+        </div>
+      </main>
     </div>
   </div>
 </section>
+
+<div class="grid2">
+<!-- Overview -->
+<section class="case" id="overview">
+  <h2>Job / Overview <span class="tag">workspace</span></h2>
+  <p class="note">README.md homepage + Plan / Run.</p>
+  <div class="screen">
+    <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span><span class="chip">UAT</span> <span class="btn g">Plan</span> <span class="btn">Run</span></span></div>
+    <div class="tabs"><span class="on">Overview</span><span>Files</span><span>Schedules</span><span>Runs</span><span>Env</span></div>
+    <div class="body" style="display:block;padding:16px">
+      <div class="card readme">
+        <h2>S3 Pull then Tomcat Java</h2>
+        <p>Pulls files via SFTP/S3, then invokes a Java class under Tomcat.</p>
+        <p><strong>Steps</strong> — 1. pull_s3.bat (cp932) · 2. run_java.bat (utf-8)</p>
+        <p class="meta">Rendered from README.md · edit in IDE on disk</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Files -->
+<section class="case" id="files">
+  <h2>Job / Files <span class="tag">workspace</span></h2>
+  <p class="note">GitHub-like tree + view-only code (Japanese OK).</p>
+  <div class="screen">
+    <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span class="chip">UAT</span></div>
+    <div class="tabs"><span>Overview</span><span class="on">Files</span><span>Schedules</span><span>Runs</span><span>Env</span></div>
+    <div class="files">
+      <div class="tree">
+        README.md<br/>job.yaml<br/>scripts/<br/><div class="sel">  pull_s3.bat</div>  run_java.bat<br/>env/<br/>  .env.uat.example
+      </div>
+      <div class="viewer">
+        <div class="meta">scripts/pull_s3.bat · view only · edit in IDE</div>
+        <div class="code">@echo off<br/>REM Pull via SFTP — uses %SFTP_HOST%<br/>echo 日本語テスト_cp932<br/>exit /b 0</div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<div class="grid2">
+<!-- Schedules -->
+<section class="case" id="schedules">
+  <h2>Job / Schedules <span class="tag">workspace</span></h2>
+  <p class="note"><code>schedule list/set/delete</code> filtered to this job.</p>
+  <div class="screen">
+    <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span class="chip">UAT</span></div>
+    <div class="tabs"><span>Overview</span><span>Files</span><span class="on">Schedules</span><span>Runs</span><span>Env</span></div>
+    <div class="body" style="display:block;padding:16px">
+      <div style="margin-bottom:10px"><span class="btn">Add schedule</span><span class="btn g">Reconcile</span></div>
+      <table class="tbl">
+        <tr><th>ID</th><th>Cron</th><th>Env</th><th>OS task</th><th></th></tr>
+        <tr><td>nightly-s3</td><td>0 2 * * *</td><td>uat</td><td>AutoDeployer-nightly-s3</td><td class="ok">enabled</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Runs -->
+<section class="case" id="runs">
+  <h2>Job / Runs <span class="tag">workspace</span></h2>
+  <p class="note"><code>history list --job</code> including skipped reasons.</p>
+  <div class="screen">
+    <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span class="chip">UAT</span></div>
+    <div class="tabs"><span>Overview</span><span>Files</span><span>Schedules</span><span class="on">Runs</span><span>Env</span></div>
+    <div class="body" style="display:block;padding:16px">
+      <table class="tbl">
+        <tr><th>When</th><th>Trigger</th><th>Status</th><th>Exit</th></tr>
+        <tr><td>2026-11-20 02:00</td><td>scheduled</td><td><span class="badge ok">succeeded</span></td><td>0</td></tr>
+        <tr><td>2026-11-19 02:00</td><td>scheduled</td><td><span class="badge warn">skipped</span></td><td>12 · promote_lock</td></tr>
+        <tr><td>2026-11-18 14:12</td><td>gui</td><td><span class="badge bad">failed</span></td><td>1</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- Env -->
+<section class="case" id="env">
+  <h2>Job / Env <span class="tag">workspace</span></h2>
+  <p class="note">Masked unless Reveal; <code>env set</code> audits key only (never the value).</p>
+  <div class="screen">
+    <div class="top"><span>← Jobs &nbsp; <strong>s3-pull-and-java</strong></span><span class="chip">UAT</span></div>
+    <div class="tabs"><span>Overview</span><span>Files</span><span>Schedules</span><span>Runs</span><span class="on">Env</span></div>
+    <div class="body" style="display:block;padding:16px">
+      <div style="margin-bottom:10px">Profile: <strong>uat</strong> &nbsp; <span class="btn g">Reveal</span> <span class="btn">Set key</span></div>
+      <table class="tbl">
+        <tr><th>Key</th><th>Value</th></tr>
+        <tr><td>SFTP_HOST</td><td>sftp.example.local</td></tr>
+        <tr><td>SFTP_USER</td><td>deploy</td></tr>
+        <tr><td>SFTP_PASSWORD</td><td>***</td></tr>
+        <tr><td>S3_BUCKET</td><td>app-uat</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="grid2">
+<!-- Plan -->
+<section class="case" id="plan">
+  <h2>Plan confirmation <span class="tag">modal</span></h2>
+  <p class="note"><code>plan --json</code> with masked secrets + plan_id.</p>
+  <div class="screen">
+    <div class="modal-back">
+      <div class="modal">
+        <h3>Confirm plan</h3>
+        <div class="meta">job s3-pull-and-java · env uat · can_execute=true</div>
+        <div class="kv">plan_id: 3e2596b3…0bbf5666<br/>steps: Pull (cp932), Java (utf-8)<br/>SFTP_PASSWORD: ***<br/>timeout: 60m</div>
+        <span class="btn g">Cancel</span><span class="btn">Confirm &amp; run</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Prod -->
+<section class="case" id="prod">
+  <h2>Prod confirmation <span class="tag warn">gate</span></h2>
+  <p class="note">Operator must type the env name before run.</p>
+  <div class="screen">
+    <div class="modal-back">
+      <div class="modal">
+        <h3>Production gate</h3>
+        <p class="meta">Type <strong>prod</strong> to continue.</p>
+        <div class="kv" style="border:2px solid #B91C1C">prod_</div>
+        <span class="btn g">Back</span><span class="btn bad">Run on prod</span>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- Running -->
+<section class="case" id="running">
+  <h2>Running + Kill <span class="tag">global</span></h2>
+  <p class="note">Kill → <code>cancel &lt;run-id&gt;</code>. Closing GUI never kills.</p>
+  <div class="screen">
+    <div class="top"><strong>Running</strong><span class="chip">UAT</span></div>
+    <div class="body">
+      <div class="gnav"><div>Jobs</div><div class="on">Running</div><div>History</div><div>Deployments</div><div>Doctor</div></div>
+      <main>
+        <table class="tbl">
+          <tr><th>Run</th><th>Job</th><th>Started</th><th>PID</th><th></th></tr>
+          <tr>
+            <td>01JB…A91</td><td>s3-pull-and-java</td><td>15:02:11</td><td>4412</td>
+            <td><span class="badge run">running</span> <span class="btn bad">Kill</span></td>
+          </tr>
+        </table>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- History -->
+<section class="case" id="history">
+  <h2>History and log <span class="tag">global</span></h2>
+  <p class="note">Two days later: full UTF-8 log including Japanese lines.</p>
+  <div class="screen">
+    <div class="top"><strong>History</strong><span class="chip">UAT</span></div>
+    <div class="body">
+      <div class="gnav"><div>Jobs</div><div>Running</div><div class="on">History</div><div>Deployments</div><div>Doctor</div></div>
+      <main>
+        <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:12px">
+          <table class="tbl">
+            <tr><th>Job</th><th>Status</th></tr>
+            <tr style="background:#F1F5F9"><td>s3-pull-and-java</td><td><span class="badge ok">succeeded</span></td></tr>
+            <tr><td>db-backup</td><td><span class="badge warn">skipped</span></td></tr>
+          </table>
+          <div class="log">=== AutoDeployer run ===
+job: s3-pull-and-java
+env: uat
+trigger: scheduled
+started: 2026-11-20T02:00:00+09:00
+=== stdout/stderr follow (UTF-8) ===
+Pulling… 完了しました
+Running class: com.example.Main
+exit 0</div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- Live log -->
+<section class="case" id="live">
+  <h2>Live log <span class="tag">global</span></h2>
+  <p class="note">Tail while watching; source of truth is the log file.</p>
+  <div class="screen">
+    <div class="top"><strong>Live log · s3-pull-and-java</strong><span class="badge run">running</span></div>
+    <div class="body" style="display:block;padding:16px">
+      <div class="log">=== AutoDeployer run ===
+run_id: 01JB…
+=== stdout/stderr follow (UTF-8) ===
+Pulling from sftp…
+█</div>
+    </div>
+  </div>
+</section>
+
+<div class="grid2">
+<!-- Deployments -->
+<section class="case" id="deploy">
+  <h2>Deployments <span class="tag">global</span></h2>
+  <p class="note"><code>promote --from</code> · never touches <code>data/</code>.</p>
+  <div class="screen">
+    <div class="top"><strong>Deployments</strong><span class="chip prod">PROD</span></div>
+    <div class="body">
+      <div class="gnav"><div>Jobs</div><div>Running</div><div>History</div><div class="on">Deployments</div><div>Doctor</div></div>
+      <main>
+        <div style="margin-bottom:10px"><span class="btn">Promote…</span></div>
+        <table class="tbl">
+          <tr><th>When</th><th>Version</th><th>Actor</th><th>Status</th></tr>
+          <tr><td>2026-11-21</td><td>a1b2c3d4…</td><td>ops</td><td><span class="badge ok">succeeded</span></td></tr>
+        </table>
+        <div class="card meta">Orphan schedules after last promote: none</div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- Doctor -->
+<section class="case" id="doctor">
+  <h2>Doctor <span class="tag">global</span></h2>
+  <p class="note">Local-disk check + backup hint for <code>data/</code>.</p>
+  <div class="screen">
+    <div class="top"><strong>Doctor</strong><span class="chip">UAT</span></div>
+    <div class="body">
+      <div class="gnav"><div>Jobs</div><div>Running</div><div>History</div><div>Deployments</div><div class="on">Doctor</div></div>
+      <main>
+        <div class="card"><span class="ok">● data_local_disk</span> · ext4</div>
+        <div class="card"><span class="ok">● sqlite_open</span></div>
+        <div class="card"><span class="ok">● machine_yaml</span> · default CP utf-8</div>
+        <div class="card">
+          <strong>data_dir</strong><br/>
+          <code>/opt/autodeployer/data</code><br/>
+          <span class="meta">Back up this directory (history, env, schedules).</span>
+        </div>
+        <span class="btn g">doctor --fix</span>
+      </main>
+    </div>
+  </div>
+</section>
+</div>
+
+<div class="grid2">
+<!-- Validation blocked -->
+<section class="case" id="blocked">
+  <h2>Validation blocked <span class="tag warn">state</span></h2>
+  <p class="note">Exit 4 missing env · Exit 9 env not allowed · Exit 11 plan_id mismatch.</p>
+  <div class="screen">
+    <div class="modal-back">
+      <div class="modal">
+        <h3 class="bad">Cannot execute</h3>
+        <div class="kv">env_validation.ok: false<br/>missing: [SFTP_PASSWORD]<br/>exit path: 4</div>
+        <p class="meta">Fix Job / Env, then Plan again.</p>
+        <span class="btn">Open Env</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Drift -->
+<section class="case" id="drift">
+  <h2>Schedule drift <span class="tag warn">state</span></h2>
+  <p class="note"><code>schedule reconcile --strict</code> → exit 14.</p>
+  <div class="screen">
+    <div class="top"><strong>Job / Schedules · reconcile</strong><span class="chip">UAT</span></div>
+    <div class="body" style="display:block;padding:16px">
+      <div class="card"><span class="warn">⚠ missing_os_task</span> · nightly-s3</div>
+      <div class="card"><span class="warn">⚠ orphan_os_task</span> · old-nightly</div>
+      <span class="btn">Re-install tasks</span>
+    </div>
+  </div>
+</section>
+</div>
 
 </div>
+
+<footer class="page">
+  Static mirror of Figma page <strong>AutoDeployer</strong> ·
+  <a href="https://www.figma.com/design/lJap2QK7KXc2zzOzgE3ydu/Auto-Deployer" style="color:#E2E8F0">open Figma</a>
+  · CLI walkthrough: <code>docs/OPERATOR-WALKTHROUGH.md</code>
+</footer>
 </body>
 </html>
