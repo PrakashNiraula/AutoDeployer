@@ -463,6 +463,15 @@ func nullInt64Ptr(p *int64) any {
 	return *p
 }
 
+// InsertDeployment records a promote result.
+func (d *DB) InsertDeployment(id, oldVer, newVer, source, actor, status string, at adtime.Instant) error {
+	_, err := d.sql.Exec(`INSERT INTO deployments(
+  id, deployed_at_utc, deployed_local, deployed_offset, old_version, new_version, source_path, actor, status
+) VALUES(?,?,?,?,?,?,?,?,?)`,
+		id, at.UTC, at.Local, at.Offset, oldVer, newVer, source, actor, status)
+	return err
+}
+
 // NewRunID returns a unique run id and 8-char short id.
 func NewRunID() (id, short string) {
 	id = fmt.Sprintf("%d%06d", time.Now().UnixNano(), os.Getpid()%1000000)

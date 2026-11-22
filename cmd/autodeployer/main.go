@@ -15,12 +15,15 @@ import (
 	"github.com/PrakashNiraula/autodeployer/internal/disklocal"
 	"github.com/PrakashNiraula/autodeployer/internal/envfile"
 	"github.com/PrakashNiraula/autodeployer/internal/exitcode"
+	"github.com/PrakashNiraula/autodeployer/internal/gc"
 	"github.com/PrakashNiraula/autodeployer/internal/job"
 	"github.com/PrakashNiraula/autodeployer/internal/machine"
 	"github.com/PrakashNiraula/autodeployer/internal/mask"
 	"github.com/PrakashNiraula/autodeployer/internal/plan"
+	"github.com/PrakashNiraula/autodeployer/internal/promote"
 	"github.com/PrakashNiraula/autodeployer/internal/root"
 	"github.com/PrakashNiraula/autodeployer/internal/runner"
+	"github.com/PrakashNiraula/autodeployer/internal/schedule"
 	"github.com/PrakashNiraula/autodeployer/internal/store"
 	"github.com/PrakashNiraula/autodeployer/internal/version"
 )
@@ -65,6 +68,12 @@ func run(args []string) int {
 		return cmdCancel(g, rest[1:])
 	case "logs":
 		return cmdLogs(g, rest[1:])
+	case "schedule":
+		return cmdSchedule(g, rest[1:])
+	case "promote":
+		return cmdPromote(g, rest[1:])
+	case "gc":
+		return cmdGC(g, rest[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", rest[0])
 		return exitcode.Usage
@@ -639,6 +648,165 @@ func cmdLogs(g globals, args []string) int {
 		return fail(exitcode.Internal, "%s", err)
 	}
 	_, _ = os.Stdout.Write(b)
+	return exitcode.OK
+}
+
+func cmdSchedule(g globals, args []string) int {
+	if len(args) == 0 {
+		return usage("schedule list|set|delete|reconcile")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	data := root.DataDir(r)
+	switch args[0] {
+	case "list":
+		f, err := schedule.Load(data)
+		if err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		if g.JSON {
+			_ = printJSON(f.Schedules)
+		} else {
+			for _, s := range f.Schedules {
+				fmt.Printf("%s\t%s\t%s\t%s\tenabled=%v\n", s.ID, s.JobID, s.EnvProfile, s.Cron, s.Enabled)
+			}
+		}
+		return exitcode.OK
+	case "set":
+		flags := parseKV(args[1:])
+		enabled := true
+		for _, a := range args[1:] {
+			if a == "--disabled" {
+				enabled = false
+			}
+		}
+		s := schedule.Schedule{
+			ID: flags["id"], JobID: flags["job"], EnvProfile: flags["env"],
+			Cron: flags["cron"], Enabled: enabled, OSTaskName: flags["os-task-name"],
+		}
+		if s.ID == "" || s.JobID == "" || s.EnvProfile == "" || s.Cron == "" {
+			return usage("schedule set --id <id> --job <job> --env <p> --cron '<expr>'")
+		}
+		cfg, err := machine.Load(data)
+		if err != nil {
+			return fail(exitcode.Schema, "%s", err)
+		}
+		if !cfg.Allows(s.EnvProfile) {
+			return fail(exitcode.EnvNotAllowed, "environment %q is not allowed on this machine", s.EnvProfile)
+		}
+		if _, err := job.Find(root.JobsDir(r), s.JobID); err != nil {
+			return fail(exitcode.Schema, "%s", err)
+		}
+		if err := schedule.Set(data, s); err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		if g.JSON {
+			_ = printJSON(s)
+		} else {
+			fmt.Println("ok")
+		}
+		return exitcode.OK
+	case "delete":
+		flags := parseKV(args[1:])
+		id := flags["id"]
+		if id == "" && len(args) > 1 && !strings.HasPrefix(args[1], "--") {
+			id = args[1]
+		}
+		if id == "" {
+			return usage("schedule delete --id <id>")
+		}
+		if err := schedule.Delete(data, id); err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		if g.JSON {
+			_ = printJSON(map[string]string{"status": "ok", "id": id})
+		} else {
+			fmt.Println("ok")
+		}
+		return exitcode.OK
+	case "reconcile":
+		strict := false
+		for _, a := range args[1:] {
+			if a == "--strict" {
+				strict = true
+			}
+		}
+		drifts, err := schedule.Reconcile(data)
+		if err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		if drifts == nil {
+			drifts = []schedule.Drift{}
+		}
+		payload := map[string]any{"ok": len(drifts) == 0, "drifts": drifts}
+		if g.JSON {
+			_ = printJSON(payload)
+		} else {
+			fmt.Printf("ok=%v drifts=%d\n", len(drifts) == 0, len(drifts))
+			for _, d := range drifts {
+				fmt.Printf("- %s: %s\n", d.ScheduleID, d.Issue)
+			}
+		}
+		if strict && len(drifts) > 0 {
+			return exitcode.ScheduleDrift
+		}
+		return exitcode.OK
+	default:
+		return usage("schedule list|set|delete|reconcile")
+	}
+}
+
+func cmdPromote(g globals, args []string) int {
+	flags := parseKV(args)
+	from := flags["from"]
+	if from == "" {
+		return usage("promote --from <new-project-dir>")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	res, err := promote.Run(r, from, osUser())
+	if err != nil && res.CLIExit == 0 {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	if g.JSON {
+		_ = printJSON(res)
+	} else {
+		fmt.Printf("ok=%v new_version=%s orphans=%d\n", res.OK, res.NewVersion, len(res.OrphanSchedules))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		}
+	}
+	if res.CLIExit != 0 {
+		return res.CLIExit
+	}
+	return exitcode.OK
+}
+
+func cmdGC(g globals, args []string) int {
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	cfg, err := machine.Load(root.DataDir(r))
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	res, err := gc.Logs(root.DataDir(r), cfg.LogRetentionDays)
+	if err != nil {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	if res.Deleted == nil {
+		res.Deleted = []string{}
+	}
+	if g.JSON {
+		_ = printJSON(res)
+	} else {
+		fmt.Printf("deleted=%d kept=%d\n", len(res.Deleted), res.Kept)
+	}
 	return exitcode.OK
 }
 
