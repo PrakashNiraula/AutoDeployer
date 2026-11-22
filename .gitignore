@@ -16,6 +16,9 @@ app/*
 # Contract validator venv (local)
 .venv-contract/
 
+# Contract validator venv (local)
+.venv-contract/
+
 # Editor / OS
 .idea/
 .vscode/
