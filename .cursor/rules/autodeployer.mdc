@@ -11,7 +11,8 @@ Read `docs/PLAN-v4.md` and `docs/WORKFLOW.md` before starting any issue. The pla
 - One issue per branch (`<issue-number>-<slug>`), one PR per issue, using the PR template. Build only what the acceptance criteria say; extra ideas become new issues.
 - Work on the lowest-numbered `status:ready` issue in the current milestone.
 - Do not start the runner (Phase 1c) before the Phase 0 spike report is approved.
-- NEVER merge your own PR. Wait for green CI on ubuntu and windows, then a reviewer comment starting `PM REVIEW: APPROVED` (signed `-- Claude (PM)`), then the owner merges. Never write that phrase or signature yourself.
+- Run on autopilot (see "Autopilot loop" in `docs/WORKFLOW.md`): after opening a PR, poll GitHub yourself for the reviewer's verdict (`gh pr view <n> --comments`); the owner will not relay it. Merge ONLY after a comment starting `PM REVIEW: APPROVED` (signed `-- Claude (PM)`), CI per the merge rules, and every condition in that comment met. Never write that phrase or signature yourself; without it, do not merge.
+- Ask the owner only for `owner-action` issues, undelegated `needs-owner-confirmation` decisions, and changes to a locked decision.
 - While CI on `main` is red, work only on issues that make it green.
 - Do not close an issue that is only partly done, and never close owner-action issues (real Windows run, real scripts) yourself.
 - Never move or delete a release tag. See `docs/WORKFLOW.md`, "Merge rules (hard)".
