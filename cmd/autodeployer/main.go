@@ -20,6 +20,7 @@ import (
 	"github.com/PrakashNiraula/autodeployer/internal/mask"
 	"github.com/PrakashNiraula/autodeployer/internal/plan"
 	"github.com/PrakashNiraula/autodeployer/internal/root"
+	"github.com/PrakashNiraula/autodeployer/internal/runner"
 	"github.com/PrakashNiraula/autodeployer/internal/store"
 	"github.com/PrakashNiraula/autodeployer/internal/version"
 )
@@ -58,6 +59,10 @@ func run(args []string) int {
 		return cmdHistory(g, rest[1:])
 	case "doctor":
 		return cmdDoctor(g, rest[1:])
+	case "run":
+		return cmdRun(g, rest[1:])
+	case "cancel":
+		return cmdCancel(g, rest[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", rest[0])
 		return exitcode.Usage
@@ -545,6 +550,89 @@ func osUser() string {
 		return u.Username
 	}
 	return "unknown"
+}
+
+func cmdRun(g globals, args []string) int {
+	if len(args) == 0 {
+		return usage("run <job> --env <p> --trigger <manual|scheduled|gui> --plan-id <id> --yes [--json-meta f] [--events f]")
+	}
+	jobID := args[0]
+	flags := parseKV(args[1:])
+	envProfile := flags["env"]
+	trigger := flags["trigger"]
+	planID := flags["plan-id"]
+	if envProfile == "" || trigger == "" {
+		return usage("run <job> --env <p> --trigger <manual|scheduled|gui> --plan-id <id> --yes")
+	}
+	yes := false
+	quiet := false
+	for _, a := range args[1:] {
+		if a == "--yes" {
+			yes = true
+		}
+		if a == "--quiet" {
+			quiet = true
+		}
+	}
+	if !yes {
+		return fail(exitcode.Usage, "--yes required for non-interactive run")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	m, err := job.Find(root.JobsDir(r), jobID)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	res, err := runner.Execute(runner.Options{
+		Root:         r,
+		Job:          m,
+		EnvProfile:   envProfile,
+		Trigger:      trigger,
+		PlanID:       planID,
+		AllowExample: g.AllowExample,
+		Yes:          yes,
+		JSONMeta:     flags["json-meta"],
+		Events:       flags["events"],
+		Actor:        osUser(),
+		Quiet:        quiet,
+	})
+	if err != nil && res.CLIExit == 0 {
+		return fail(exitcode.Internal, "%s", err)
+	}
+	if g.JSON {
+		_ = printJSON(res)
+	} else if res.Status != "" {
+		fmt.Printf("run_id=%s status=%s\n", res.RunID, res.Status)
+	}
+	if res.CLIExit != 0 {
+		return res.CLIExit
+	}
+	return exitcode.OK
+}
+
+func cmdCancel(g globals, args []string) int {
+	if len(args) == 0 {
+		return usage("cancel <run-id>")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	res, code, err := runner.Cancel(r, args[0])
+	if err != nil {
+		if code == exitcode.CancelNotFound {
+			return fail(exitcode.CancelNotFound, "%s", err)
+		}
+		return fail(code, "%s", err)
+	}
+	if g.JSON {
+		_ = printJSON(res)
+	} else {
+		fmt.Printf("cancelled %s\n", res.RunID)
+	}
+	return exitcode.OK
 }
 
 func parseJobEnv(args []string) (jobID, env string, err error) {
