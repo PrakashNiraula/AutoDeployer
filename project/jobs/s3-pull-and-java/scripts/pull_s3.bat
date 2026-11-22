@@ -1,5 +1,8 @@
 @echo off
 rem STUB: replace with the real S3/SFTP pull.
-echo Pulling from %SFTP_HOST% as %SFTP_USER% bucket %S3_BUCKET%
-echo Output dir: %AD_JOB_OUTPUT_DIR%
+chcp 932 >nul
+echo SFTP接続開始: host=%SFTP_HOST% user=%SFTP_USER%
+echo バケット: %S3_BUCKET%
+echo 出力先: %AD_JOB_OUTPUT_DIR%
+echo ファイル取得完了
 exit /b 0

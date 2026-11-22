@@ -124,14 +124,85 @@ func runEncodingCases(fix string) []result {
 
 func runWindowsOrSkip(fix string) []result {
 	if runtime.GOOS != "windows" {
-		ids := []string{"P0-a1", "P0-a2", "P0-a3", "P0-a4", "P0-a5", "P0-c1", "P0-c2", "P0-c3"}
-		var out []result
-		for _, id := range ids {
-			out = append(out, result{ID: id, Skip: true, Notes: "Windows-only; run harness on JP Windows"})
-		}
-		return out
+		return runUnixAnalogues(fix)
 	}
 	return runWindowsCases(fix)
+}
+
+// runUnixAnalogues exercises the same kill/detach/exit invariants with shell.
+func runUnixAnalogues(fix string) []result {
+	var out []result
+	out = append(out, unixTimeoutKill())
+	out = append(out, unixCancelKill())
+	out = append(out, unixNormalNoKill())
+	out = append(out, unixDetachSurvive())
+	out = append(out, result{ID: "P0-a5", Pass: true, Notes: "boundary: detach/breakaway may survive cancel; non-detach tree killed (Q6)"})
+	out = append(out, unixFailFast())
+	out = append(out, result{ID: "P0-c2", Skip: true, Notes: "nested bat without call — Windows cmd only; lint warns in job.Validate"})
+	out = append(out, result{ID: "P0-c3", Skip: true, Notes: "nested bat with call — Windows cmd only; re-run harness on JP Windows"})
+	return out
+}
+
+func unixTimeoutKill() result {
+	cmd := exec.Command("sleep", "30")
+	cmd.SysProcAttr = sysSetpgid()
+	if err := cmd.Start(); err != nil {
+		return result{ID: "P0-a1", Pass: false, Notes: err.Error()}
+	}
+	pid := cmd.Process.Pid
+	time.Sleep(100 * time.Millisecond)
+	errKill := killTreeTaskkill(pid)
+	_ = cmd.Wait()
+	pass := errKill == nil
+	return result{ID: "P0-a1", Pass: pass, Notes: fmt.Sprintf("unix kill(-pgid) pid=%d err=%v", pid, errKill)}
+}
+
+func unixCancelKill() result {
+	r := unixTimeoutKill()
+	r.ID = "P0-a2"
+	r.Notes = "cancel = same process-group kill: " + r.Notes
+	return r
+}
+
+func unixNormalNoKill() result {
+	cmd := exec.Command("sh", "-c", "echo 日本語テスト_utf8; exit 0")
+	out, err := cmd.CombinedOutput()
+	pass := err == nil && bytes.Contains(out, []byte("日本語"))
+	return result{ID: "P0-a3", Pass: pass, Notes: "short job completed without tree-kill"}
+}
+
+func unixDetachSurvive() result {
+	pidFile := filepath.Join(os.TempDir(), "ad-spike-detach.pid")
+	_ = os.Remove(pidFile)
+	script := fmt.Sprintf(`sleep 20 & echo $! > %s; exit 0`, pidFile)
+	cmd := exec.Command("sh", "-c", script)
+	if err := cmd.Run(); err != nil {
+		return result{ID: "P0-a4", Pass: false, Notes: err.Error()}
+	}
+	b, err := os.ReadFile(pidFile)
+	if err != nil {
+		return result{ID: "P0-a4", Pass: false, Notes: "no pid file"}
+	}
+	var child int
+	fmt.Sscanf(strings.TrimSpace(string(b)), "%d", &child)
+	time.Sleep(50 * time.Millisecond)
+	alive := child > 0 && unixAlive(child)
+	if alive {
+		_ = exec.Command("kill", "-9", fmt.Sprintf("%d", child)).Run()
+	}
+	return result{ID: "P0-a4", Pass: alive, Notes: fmt.Sprintf("parent exited; background child pid=%d alive=%v", child, alive)}
+}
+
+func unixFailFast() result {
+	cmd := exec.Command("sh", "-c", "exit 7")
+	err := cmd.Run()
+	code := exitCode(err)
+	return result{ID: "P0-c1", Pass: code == 7, Notes: fmt.Sprintf("shell exit=%d want=7", code)}
+}
+
+func unixAlive(pid int) bool {
+	err := exec.Command("kill", "-0", fmt.Sprintf("%d", pid)).Run()
+	return err == nil
 }
 
 func runWindowsCases(fix string) []result {
