@@ -1,0 +1,14 @@
+machine_name: uat-app-01
+allowed_envs: [uat]
+default_env: uat
+default_output_code_page: cp932
+env_file_encoding: utf-8
+log_retention_days: 30
+allow_example_env: false
+promote_wait_seconds_manual: 30
+promote_wait_seconds_scheduled: 300
+secret_min_mask_length: 4
+notify:
+  on_failure: true
+  on_skipped: true
+  webhook_url: ""

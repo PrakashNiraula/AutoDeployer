@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autodeployer.local/contract/plan_result.schema.json",
+  "title": "PlanResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_id",
+    "job_id",
+    "job_name",
+    "env_profile",
+    "machine_name",
+    "project_version",
+    "workdir",
+    "timeout_minutes",
+    "encoding",
+    "steps",
+    "env_validation",
+    "active_runs",
+    "warnings",
+    "can_execute"
+  ],
+  "properties": {
+    "plan_id": { "type": "string", "minLength": 1 },
+    "job_id": { "type": "string", "minLength": 1 },
+    "job_name": { "type": "string" },
+    "env_profile": { "type": "string", "minLength": 1 },
+    "machine_name": { "type": "string" },
+    "project_version": { "type": "string" },
+    "workdir": { "type": "string" },
+    "timeout_minutes": { "type": "integer", "minimum": 1 },
+    "encoding": {
+      "type": "object",
+      "required": ["output_code_page"],
+      "additionalProperties": false,
+      "properties": {
+        "output_code_page": { "type": "string", "minLength": 1 }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "name", "command"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "name": { "type": "string" },
+          "command": { "type": "string" },
+          "output_code_page": { "type": "string" },
+          "detach": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "env_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "missing", "empty", "present_masked"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "missing": { "type": "array", "items": { "type": "string" } },
+        "empty": { "type": "array", "items": { "type": "string" } },
+        "present_masked": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "active_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["run_id", "job_id", "status"],
+        "properties": {
+          "run_id": { "type": "string" },
+          "job_id": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "can_execute": { "type": "boolean" }
+  }
+}
