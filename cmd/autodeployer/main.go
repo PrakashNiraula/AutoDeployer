@@ -7,9 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PrakashNiraula/autodeployer/internal/envfile"
 	"github.com/PrakashNiraula/autodeployer/internal/exitcode"
 	"github.com/PrakashNiraula/autodeployer/internal/job"
 	"github.com/PrakashNiraula/autodeployer/internal/machine"
+	"github.com/PrakashNiraula/autodeployer/internal/mask"
+	"github.com/PrakashNiraula/autodeployer/internal/plan"
 	"github.com/PrakashNiraula/autodeployer/internal/root"
 	"github.com/PrakashNiraula/autodeployer/internal/version"
 )
@@ -19,14 +22,14 @@ func main() {
 }
 
 func run(args []string) int {
-	rootFlag, jsonOut, rest := parseGlobals(args)
+	g, rest := parseGlobals(args)
 	if len(rest) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: autodeployer [--root PATH] [--json] <command>")
 		return exitcode.Usage
 	}
 	switch rest[0] {
 	case "version":
-		if jsonOut {
+		if g.JSON {
 			_ = printJSON(map[string]any{
 				"version":        version.Binary,
 				"schema_version": version.JobSchema,
@@ -37,42 +40,59 @@ func run(args []string) int {
 		}
 		return exitcode.OK
 	case "jobs":
-		return cmdJobs(rootFlag, jsonOut, rest[1:])
+		return cmdJobs(g, rest[1:])
 	case "schema":
-		return cmdSchema(rootFlag, jsonOut, rest[1:])
+		return cmdSchema(g, rest[1:])
+	case "plan":
+		return cmdPlan(g, rest[1:])
+	case "env":
+		return cmdEnv(g, rest[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", rest[0])
 		return exitcode.Usage
 	}
 }
 
-func parseGlobals(args []string) (rootFlag string, jsonOut bool, rest []string) {
+type globals struct {
+	Root         string
+	JSON         bool
+	Reveal       bool
+	AllowExample bool
+}
+
+func parseGlobals(args []string) (globals, []string) {
+	var g globals
+	var rest []string
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "--root" && i+1 < len(args):
-			rootFlag = args[i+1]
+			g.Root = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--root="):
-			rootFlag = strings.TrimPrefix(a, "--root=")
+			g.Root = strings.TrimPrefix(a, "--root=")
 		case a == "--json":
-			jsonOut = true
+			g.JSON = true
+		case a == "--reveal":
+			g.Reveal = true
+		case a == "--allow-example-env":
+			g.AllowExample = true
 		default:
 			rest = append(rest, a)
 		}
 	}
-	return rootFlag, jsonOut, rest
+	return g, rest
 }
 
 func openRoot(rootFlag string) (string, error) {
 	return root.Resolve(rootFlag)
 }
 
-func cmdJobs(rootFlag string, jsonOut bool, args []string) int {
+func cmdJobs(g globals, args []string) int {
 	if len(args) == 0 {
 		return usage("jobs list|show <id>")
 	}
-	r, err := openRoot(rootFlag)
+	r, err := openRoot(g.Root)
 	if err != nil {
 		return fail(exitcode.Schema, "%s", err)
 	}
@@ -83,7 +103,7 @@ func cmdJobs(rootFlag string, jsonOut bool, args []string) int {
 		if err != nil {
 			return fail(exitcode.Schema, "%s", err)
 		}
-		if jsonOut {
+		if g.JSON {
 			_ = printJSON(list)
 		} else {
 			for _, s := range list {
@@ -101,18 +121,18 @@ func cmdJobs(rootFlag string, jsonOut bool, args []string) int {
 		}
 		readme := filepath.Join(m.Dir, "README.md")
 		out := map[string]any{
-			"id":           m.ID,
-			"name":         m.Name,
-			"description":  m.Description,
-			"path":         m.Dir,
-			"readme_path":  readme,
-			"workdir":      m.Workdir,
-			"required_env": m.RequiredEnv,
-			"secrets":      m.Secrets,
-			"steps":        m.Steps,
+			"id":              m.ID,
+			"name":            m.Name,
+			"description":     m.Description,
+			"path":            m.Dir,
+			"readme_path":     readme,
+			"workdir":         m.Workdir,
+			"required_env":    m.RequiredEnv,
+			"secrets":         m.Secrets,
+			"steps":           m.Steps,
 			"timeout_minutes": m.TimeoutMinutes,
 		}
-		if jsonOut {
+		if g.JSON {
 			_ = printJSON(out)
 		} else {
 			fmt.Printf("%s — %s\n%s\n", m.ID, m.Name, strings.TrimSpace(m.Description))
@@ -123,11 +143,11 @@ func cmdJobs(rootFlag string, jsonOut bool, args []string) int {
 	}
 }
 
-func cmdSchema(rootFlag string, jsonOut bool, args []string) int {
+func cmdSchema(g globals, args []string) int {
 	if len(args) == 0 || args[0] != "validate" {
 		return usage("schema validate [job|all]")
 	}
-	r, err := openRoot(rootFlag)
+	r, err := openRoot(g.Root)
 	if err != nil {
 		return fail(exitcode.Schema, "%s", err)
 	}
@@ -173,7 +193,7 @@ func cmdSchema(rootFlag string, jsonOut bool, args []string) int {
 		validateOne(target)
 	}
 	payload := map[string]any{"ok": allOK, "results": results}
-	if jsonOut {
+	if g.JSON {
 		_ = printJSON(payload)
 	} else {
 		for _, res := range results {
@@ -192,6 +212,165 @@ func cmdSchema(rootFlag string, jsonOut bool, args []string) int {
 		return exitcode.Schema
 	}
 	return exitcode.OK
+}
+
+func cmdPlan(g globals, args []string) int {
+	jobID, envProfile, err := parseJobEnv(args)
+	if err != nil {
+		return usage("plan <job> --env <profile>")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	cfg, err := machine.Load(root.DataDir(r))
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	m, err := job.Find(root.JobsDir(r), jobID)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	res, err := plan.Build(r, m, envProfile, cfg, g.AllowExample, nil)
+	if err != nil {
+		if err.Error() == "ENV_NOT_ALLOWED" {
+			return fail(exitcode.EnvNotAllowed, "environment %q is not allowed on this machine", envProfile)
+		}
+		return fail(exitcode.Internal, "%s", err)
+	}
+	if g.JSON {
+		_ = printJSON(res)
+	} else {
+		fmt.Printf("plan_id=%s can_execute=%v\n", res.PlanID, res.CanExecute)
+	}
+	if !res.EnvValidation.OK {
+		return exitcode.EnvValidation
+	}
+	return exitcode.OK
+}
+
+func cmdEnv(g globals, args []string) int {
+	if len(args) == 0 {
+		return usage("env list|get|set --job <id> --env <profile> ...")
+	}
+	r, err := openRoot(g.Root)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	cfg, err := machine.Load(root.DataDir(r))
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	flags := parseKV(args[1:])
+	jobID := flags["job"]
+	profile := flags["env"]
+	if jobID == "" {
+		return usage("env ... --job <id>")
+	}
+	m, err := job.Find(root.JobsDir(r), jobID)
+	if err != nil {
+		return fail(exitcode.Schema, "%s", err)
+	}
+	switch args[0] {
+	case "list":
+		if profile == "" {
+			profile = cfg.DefaultEnv
+		}
+		if !cfg.Allows(profile) {
+			return fail(exitcode.EnvNotAllowed, "environment %q is not allowed on this machine", profile)
+		}
+		p := envfile.Path(root.DataDir(r), jobID, profile)
+		vals, err := envfile.ParseFile(p)
+		if err != nil {
+			if os.IsNotExist(err) {
+				vals = map[string]string{}
+			} else {
+				return fail(exitcode.Internal, "%s", err)
+			}
+		}
+		out := vals
+		if !g.Reveal {
+			out = mask.MaskMap(vals, m.Secrets, cfg.SecretMinMaskLength)
+		}
+		if g.JSON {
+			_ = printJSON(out)
+		} else {
+			for k, v := range out {
+				fmt.Printf("%s=%s\n", k, v)
+			}
+		}
+		return exitcode.OK
+	case "get":
+		key := flags["key"]
+		if profile == "" || key == "" {
+			return usage("env get --job <id> --env <p> --key <K>")
+		}
+		if !cfg.Allows(profile) {
+			return fail(exitcode.EnvNotAllowed, "environment %q is not allowed on this machine", profile)
+		}
+		vals, err := envfile.ParseFile(envfile.Path(root.DataDir(r), jobID, profile))
+		if err != nil {
+			return fail(exitcode.EnvValidation, "%s", err)
+		}
+		v := vals[key]
+		if !g.Reveal && mask.IsSecretKey(key, m.Secrets) && mask.ShouldMaskValue(v, cfg.SecretMinMaskLength) {
+			v = "***"
+		}
+		if g.JSON {
+			_ = printJSON(map[string]string{key: v})
+		} else {
+			fmt.Println(v)
+		}
+		return exitcode.OK
+	case "set":
+		key, value := flags["key"], flags["value"]
+		if profile == "" || key == "" {
+			return usage("env set --job <id> --env <p> --key <K> --value <V>")
+		}
+		if !cfg.Allows(profile) {
+			return fail(exitcode.EnvNotAllowed, "environment %q is not allowed on this machine", profile)
+		}
+		if err := envfile.SetKey(root.DataDir(r), jobID, profile, key, value); err != nil {
+			return fail(exitcode.Internal, "%s", err)
+		}
+		// audit wired in 1c
+		if g.JSON {
+			_ = printJSON(map[string]string{"status": "ok", "key": key})
+		} else {
+			fmt.Println("ok")
+		}
+		return exitcode.OK
+	default:
+		return usage("env list|get|set ...")
+	}
+}
+
+func parseJobEnv(args []string) (jobID, env string, err error) {
+	if len(args) == 0 {
+		return "", "", fmt.Errorf("missing job")
+	}
+	jobID = args[0]
+	kv := parseKV(args[1:])
+	env = kv["env"]
+	if env == "" {
+		return "", "", fmt.Errorf("missing --env")
+	}
+	return jobID, env, nil
+}
+
+func parseKV(args []string) map[string]string {
+	out := map[string]string{}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "--") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+			out[strings.TrimPrefix(a, "--")] = args[i+1]
+			i++
+		} else if strings.HasPrefix(a, "--") && strings.Contains(a, "=") {
+			k, v, _ := strings.Cut(strings.TrimPrefix(a, "--"), "=")
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func printJSON(v any) error {
