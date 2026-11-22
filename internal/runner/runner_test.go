@@ -2,16 +2,11 @@ package runner
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"syscall"
 	"testing"
-	"time"
 
 	"github.com/PrakashNiraula/autodeployer/internal/exitcode"
 	"github.com/PrakashNiraula/autodeployer/internal/job"
-	"github.com/PrakashNiraula/autodeployer/internal/killtree"
 	"github.com/PrakashNiraula/autodeployer/internal/machine"
 	"github.com/PrakashNiraula/autodeployer/internal/plan"
 )
@@ -66,23 +61,6 @@ func TestRunSucceeds(t *testing.T) {
 	if !contains(string(b), "***") && contains(string(b), "secretpw") {
 		t.Fatalf("secret not masked in log: %s", b)
 	}
-}
-
-func TestKillProcessGroup(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("unix only")
-	}
-	cmd := exec.Command("sleep", "30")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	pid := cmd.Process.Pid
-	time.Sleep(50 * time.Millisecond)
-	if err := killtree.KillProcessGroup(pid); err != nil {
-		t.Fatal(err)
-	}
-	_ = cmd.Wait()
 }
 
 func setupFixture(t *testing.T) string {

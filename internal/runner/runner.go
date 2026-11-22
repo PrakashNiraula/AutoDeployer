@@ -10,10 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/PrakashNiraula/autodeployer/internal/adtime"
@@ -320,10 +318,7 @@ func runStep(ctx context.Context, opts Options, runID, outDir string, step plan.
 		return 1, 0, 0, err
 	}
 	cmd.Stderr = cmd.Stdout
-
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	}
+	applyProcAttr(cmd)
 
 	start := time.Now()
 	if err := cmd.Start(); err != nil {
