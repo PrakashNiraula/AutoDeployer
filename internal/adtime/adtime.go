@@ -21,9 +21,12 @@ func Now() Instant {
 	return From(time.Now())
 }
 
-// From converts t into Instant using t's location.
+// From converts t into Instant using t's own location (not the host Local zone).
+// Callers that want "machine local" should pass t.In(time.Local) or use Now().
 func From(t time.Time) Instant {
-	t = t.In(time.Local)
+	if t.Location() == nil {
+		t = t.In(time.UTC)
+	}
 	_, offSec := t.Zone()
 	sign := "+"
 	if offSec < 0 {
@@ -42,6 +45,14 @@ func From(t time.Time) Instant {
 		Offset:    offset,
 		Time:      t,
 	}
+}
+
+// In returns Instant for t interpreted in loc.
+func In(t time.Time, loc *time.Location) Instant {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return From(t.In(loc))
 }
 
 // ParseCanonical parses YYYY-MM-DDTHH:mm:ss±HH:MM.
